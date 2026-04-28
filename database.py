@@ -163,6 +163,46 @@ def save_snapshot(shop_id: int, product_id: str, viewers: int, rating: float, fb
         conn.close()
 
 
+def save_snapshots_batch(rows):
+    """rows: список кортежей (shop_id, product_id, viewers, rating, fbs)."""
+    if not rows:
+        return
+    now = datetime.now().strftime("%d.%m.%Y %H:%M")
+    payload = [(s, p, v, r, f, now) for (s, p, v, r, f) in rows]
+    conn = _get_conn()
+    try:
+        c = _cur(conn)
+        c.executemany(
+            f"INSERT INTO snapshots (shop_id, product_id, viewers, rating, fbs, taken_at) VALUES ({_PH},{_PH},{_PH},{_PH},{_PH},{_PH})",
+            payload
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def last_snapshot_age_minutes(shop_id: int) -> float:
+    """Возраст последнего снимка в минутах (или 9999 если снимков нет)."""
+    conn = _get_conn()
+    try:
+        c = _dict_cur(conn)
+        c.execute(
+            f"SELECT taken_at FROM snapshots WHERE shop_id={_PH} ORDER BY id DESC LIMIT 1",
+            (shop_id,)
+        )
+        row = c.fetchone()
+        if not row:
+            return 9999.0
+        taken_at = row["taken_at"] if isinstance(row, dict) or hasattr(row, "keys") else row[0]
+        try:
+            dt = datetime.strptime(taken_at, "%d.%m.%Y %H:%M")
+            return (datetime.now() - dt).total_seconds() / 60
+        except Exception:
+            return 9999.0
+    finally:
+        conn.close()
+
+
 def get_snapshots(shop_id: int, product_id: str, limit: int = 14):
     conn = _get_conn()
     try:

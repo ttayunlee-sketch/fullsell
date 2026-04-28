@@ -4,15 +4,20 @@ from pathlib import Path
 from fastapi import FastAPI, Request, Form, Cookie
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
+from fastapi.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel
 from jinja2 import Environment, FileSystemLoader
-from database import init_db, get_clients, get_client, add_client, delete_client, get_alerts, add_alert, save_snapshot
+from database import (
+    init_db, get_clients, get_client, add_client, delete_client,
+    get_alerts, add_alert, save_snapshots_batch, last_snapshot_age_minutes
+)
 from uzum import get_products, test_connection
 from ai import ask as ai_ask
 
 BASE_DIR = Path(__file__).parent
 
 app = FastAPI()
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 
 def _extract_image(p: dict) -> str:
@@ -233,11 +238,16 @@ async def shop_page(cid: int, request: Request, session: str = Cookie(default=No
 
     for p in products:
         _normalize(p)
-        pid   = str(p.get("productId") or p.get("id") or "")
-        title = (p["title_norm"])[:50]
-        save_snapshot(client["shop_id"], pid, p["views_norm"], p["rating_norm"], p["fbs_norm"])
-        if 0 < p["fbs_norm"] <= 10:
-            add_alert(client["shop_id"], pid, title, "warn", f"Мало остатков FBS: {p['fbs_norm']} шт.")
+
+    # Снимки сохраняем максимум раз в час, и одним батчем
+    if last_snapshot_age_minutes(client["shop_id"]) >= 60:
+        rows = []
+        for p in products:
+            pid = str(p.get("productId") or p.get("id") or "")
+            rows.append((client["shop_id"], pid, p["views_norm"], p["rating_norm"], p["fbs_norm"]))
+            if 0 < p["fbs_norm"] <= 10:
+                add_alert(client["shop_id"], pid, p["title_norm"][:50], "warn", f"Мало остатков FBS: {p['fbs_norm']} шт.")
+        save_snapshots_batch(rows)
 
     active = [p for p in products if p["status_norm"] in ("IN_STOCK", "ACTIVE")]
     rated  = [p["rating_norm"] for p in products if p["rating_norm"] > 0]
