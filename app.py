@@ -9,7 +9,8 @@ from pydantic import BaseModel
 from jinja2 import Environment, FileSystemLoader
 from database import (
     init_db, get_clients, get_client, add_client, delete_client,
-    get_alerts, add_alert, save_snapshots_batch, last_snapshot_age_minutes
+    get_alerts, add_alert, save_snapshots_batch, last_snapshot_age_minutes,
+    add_promotion, get_promotions, delete_promotion, update_promotion_status,
 )
 from uzum import get_products, test_connection
 from ai import ask as ai_ask, audit_product
@@ -262,17 +263,96 @@ async def shop_page(cid: int, request: Request, session: str = Cookie(default=No
         "fbs":    sum(p["fbs_norm"] for p in products),
     }
 
+    candidates = _promo_candidates(products)
+
     return templates.TemplateResponse(request, "shop.html", {
-        "client":   client,
-        "products": products,
-        "alerts":   get_alerts(client["shop_id"]),
-        "stats":    stats,
+        "client":     client,
+        "products":   products,
+        "alerts":     get_alerts(client["shop_id"]),
+        "stats":      stats,
+        "promotions": get_promotions(client["shop_id"]),
+        "candidates": candidates,
     })
+
+
+def _promo_candidates(products: list) -> list:
+    """Кандидаты на продвижение: хороший рейтинг, но мало просмотров."""
+    scored = []
+    for p in products:
+        if p["status_norm"] not in ("IN_STOCK", "ACTIVE"):
+            continue
+        rating = p["rating_norm"]
+        views = p["views_norm"]
+        fbs = p["fbs_norm"]
+        if fbs <= 0:
+            continue
+        if rating >= 4.0 and views < 500:
+            score = (rating - 3.5) * 100 - min(views, 1000) / 10
+            scored.append((score, p))
+        elif rating >= 4.5:
+            score = (rating - 3.5) * 50
+            scored.append((score, p))
+    scored.sort(key=lambda x: -x[0])
+    return [p for _, p in scored[:8]]
 
 # ── AI ────────────────────────────────────────────────────────────────────────
 
 class AskBody(BaseModel):
     message: str
+
+class PromoBody(BaseModel):
+    product_id: str
+    title: str
+    keyword: str
+    target: int = 10
+
+
+@app.post("/shop/{cid}/promo/add")
+async def promo_add(cid: int, body: PromoBody, session: str = Cookie(default=None)):
+    if not _auth(session):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    client = get_client(cid)
+    if not client:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+    add_promotion(client["shop_id"], body.product_id, body.title, body.keyword.strip(), body.target)
+    return JSONResponse({"ok": True})
+
+
+@app.post("/shop/{cid}/promo/{promo_id}/delete")
+async def promo_delete(cid: int, promo_id: int, session: str = Cookie(default=None)):
+    if not _auth(session):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    delete_promotion(promo_id)
+    return JSONResponse({"ok": True})
+
+
+@app.post("/shop/{cid}/promo/{promo_id}/status")
+async def promo_status(cid: int, promo_id: int, status: str = Form(...), session: str = Cookie(default=None)):
+    if not _auth(session):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    update_promotion_status(promo_id, status)
+    return JSONResponse({"ok": True})
+
+
+@app.post("/shop/{cid}/promo/recommend")
+async def promo_recommend(cid: int, session: str = Cookie(default=None)):
+    if not _auth(session):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    client = get_client(cid)
+    if not client:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+    products = get_products(client["api_key"], client["shop_id"])
+    for p in products:
+        _normalize(p)
+    msg = (
+        "Ты — стратег по продвижению на UZUM. На основе данных магазина выбери ТОП-5 товаров "
+        "которые стоит продвигать прямо сейчас. Для каждого укажи: 1) название, 2) почему именно его, "
+        "3) какие 3-5 ключевых фраз для продвижения, 4) ожидаемый эффект. "
+        "Будь конкретен. Без markdown."
+    )
+    response = ai_ask(dict(client), products, msg)
+    return JSONResponse({"response": response})
+
 
 @app.post("/shop/{cid}/product/{pid}/audit")
 async def product_audit(cid: int, pid: str, session: str = Cookie(default=None)):

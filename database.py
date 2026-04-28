@@ -76,6 +76,19 @@ def init_db():
                 taken_at   TEXT NOT NULL
             )
         """)
+        c.execute(f"""
+            CREATE TABLE IF NOT EXISTS promotions (
+                id         {_SERIAL} PRIMARY KEY {_AUTOINCREMENT},
+                shop_id    INTEGER NOT NULL,
+                product_id TEXT NOT NULL,
+                title      TEXT,
+                keyword    TEXT NOT NULL,
+                position   INTEGER,
+                target     INTEGER,
+                status     TEXT,
+                added_at   TEXT NOT NULL
+            )
+        """)
         conn.commit()
     finally:
         conn.close()
@@ -176,6 +189,49 @@ def save_snapshots_batch(rows):
             f"INSERT INTO snapshots (shop_id, product_id, viewers, rating, fbs, taken_at) VALUES ({_PH},{_PH},{_PH},{_PH},{_PH},{_PH})",
             payload
         )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def add_promotion(shop_id: int, product_id: str, title: str, keyword: str, target: int = 10):
+    conn = _get_conn()
+    try:
+        c = _cur(conn)
+        c.execute(
+            f"INSERT INTO promotions (shop_id, product_id, title, keyword, position, target, status, added_at) VALUES ({_PH},{_PH},{_PH},{_PH},{_PH},{_PH},{_PH},{_PH})",
+            (shop_id, product_id, title, keyword, None, target, "active", datetime.now().strftime("%d.%m.%Y"))
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_promotions(shop_id: int):
+    conn = _get_conn()
+    try:
+        c = _dict_cur(conn)
+        c.execute(f"SELECT * FROM promotions WHERE shop_id={_PH} ORDER BY id DESC", (shop_id,))
+        return c.fetchall()
+    finally:
+        conn.close()
+
+
+def delete_promotion(promo_id: int):
+    conn = _get_conn()
+    try:
+        c = _cur(conn)
+        c.execute(f"DELETE FROM promotions WHERE id={_PH}", (promo_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def update_promotion_status(promo_id: int, status: str):
+    conn = _get_conn()
+    try:
+        c = _cur(conn)
+        c.execute(f"UPDATE promotions SET status={_PH} WHERE id={_PH}", (status, promo_id))
         conn.commit()
     finally:
         conn.close()

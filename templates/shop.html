@@ -57,6 +57,9 @@
   <li><a href="#" class="tab-link" onclick="return tab(this,'alerts')">🔔 Алерты
     {% if alerts %}<span style="background:#6366f1;color:#fff;border-radius:20px;padding:1px 7px;font-size:.7rem;margin-left:4px;">{{ alerts|length }}</span>{% endif %}
   </a></li>
+  <li><a href="#" class="tab-link" onclick="return tab(this,'promo')">🚀 Продвижение
+    {% if promotions %}<span style="background:#a78bfa;color:#fff;border-radius:20px;padding:1px 7px;font-size:.7rem;margin-left:4px;">{{ promotions|length }}</span>{% endif %}
+  </a></li>
   <li><a href="#" class="tab-link" onclick="return tab(this,'ai')">🤖 AI Советник</a></li>
 </ul>
 
@@ -179,6 +182,144 @@
   {% endif %}
 </div>
 
+<!-- ── ПРОДВИЖЕНИЕ ──────────────────────────────────────────────────────────── -->
+<div id="tab-promo" style="display:none;padding-top:20px;">
+  <div class="row g-3">
+    <!-- Активные кампании -->
+    <div class="col-12">
+      <div class="card-dark">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+          <div>
+            <div style="color:#fff;font-weight:600;font-size:.95rem;">🎯 Активные кампании</div>
+            <div style="color:#cbd5e1;font-size:.8rem;margin-top:2px;">Товары и ключевые запросы, которые продвигаем</div>
+          </div>
+          <button onclick="openPromoModal()" class="btn btn-primary btn-sm">+ Добавить кампанию</button>
+        </div>
+        {% if promotions %}
+        <div class="table-wrap">
+          <table class="table table-borderless mb-0 fs-table">
+            <thead>
+              <tr>
+                <th>Товар</th>
+                <th>Ключевая фраза</th>
+                <th>Цель</th>
+                <th>Текущая позиция</th>
+                <th>Статус</th>
+                <th>Добавлен</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for pr in promotions %}
+              <tr>
+                <td class="product-name" style="max-width:240px;">{{ (pr.title or '—')[:50] }}</td>
+                <td style="color:#fff;">{{ pr.keyword }}</td>
+                <td><span class="rank-a">ТОП-{{ pr.target }}</span></td>
+                <td>{% if pr.position %}<span style="color:#fff;font-weight:500;">{{ pr.position }}</span>{% else %}<span style="color:#94a3b8;">—</span>{% endif %}</td>
+                <td>
+                  {% if pr.status == 'active' %}<span class="badge-ok">В работе</span>
+                  {% elif pr.status == 'done' %}<span class="badge-ok">Готово ✓</span>
+                  {% elif pr.status == 'paused' %}<span class="badge-warn">Пауза</span>
+                  {% else %}<span class="badge-off">{{ pr.status }}</span>{% endif %}
+                </td>
+                <td style="color:#cbd5e1;">{{ pr.added_at }}</td>
+                <td><button onclick="deletePromo({{ pr.id }})" class="btn-ghost" style="padding:4px 10px;cursor:pointer;font-size:.85rem;">✕</button></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div style="text-align:center;padding:30px 20px;color:#cbd5e1;">
+          <div style="font-size:2rem;margin-bottom:10px;">🚀</div>
+          <div style="color:#fff;font-weight:500;">Нет активных кампаний</div>
+          <div style="font-size:.85rem;margin-top:4px;">Добавьте товар и ключевую фразу для продвижения</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Кандидаты -->
+    <div class="col-md-7">
+      <div class="card-dark">
+        <div style="color:#fff;font-weight:600;font-size:.95rem;margin-bottom:4px;">⭐ Кандидаты на продвижение</div>
+        <div style="color:#cbd5e1;font-size:.8rem;margin-bottom:14px;">Высокий рейтинг, но мало просмотров — потенциал роста</div>
+        {% if candidates %}
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          {% for c in candidates %}
+          {% set cpid = c.get('productId') or c.get('id') or '' %}
+          <div style="display:flex;align-items:center;gap:12px;padding:10px;background:var(--card2);border:1px solid var(--border);border-radius:10px;">
+            {% if c.image_url %}
+              <img src="{{ c.image_url }}" style="width:40px;height:40px;border-radius:6px;object-fit:cover;flex-shrink:0;" referrerpolicy="no-referrer" onerror="this.style.opacity='.3'">
+            {% else %}
+              <div style="width:40px;height:40px;border-radius:6px;background:var(--border2);display:flex;align-items:center;justify-content:center;flex-shrink:0;">📦</div>
+            {% endif %}
+            <div style="flex:1;min-width:0;">
+              <div style="color:#fff;font-size:.88rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ c.title_norm[:50] }}</div>
+              <div style="color:#cbd5e1;font-size:.78rem;margin-top:2px;">
+                <span style="color:#fbbf24;">★ {{ c.rating_norm }}</span> ·
+                <span>{{ "{:,}".format(c.views_norm) }} просмотров</span> ·
+                <span>{{ c.fbs_norm }} шт</span>
+              </div>
+            </div>
+            <button onclick="openPromoModal('{{ cpid }}', '{{ c.title_norm[:50]|replace("'", "\\'") }}')" class="btn btn-primary btn-sm" style="padding:4px 12px;font-size:.78rem;">+ В план</button>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div style="text-align:center;padding:20px;color:#cbd5e1;font-size:.85rem;">Кандидатов не найдено</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- AI рекомендации -->
+    <div class="col-md-5">
+      <div class="card-dark">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+          <div style="width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,#a5b4fc,#c4b5fd);display:flex;align-items:center;justify-content:center;font-size:.85rem;">🤖</div>
+          <div>
+            <div style="color:#fff;font-weight:600;font-size:.92rem;">AI-стратегия продвижения</div>
+            <div style="color:#cbd5e1;font-size:.76rem;">Что и как продвигать</div>
+          </div>
+        </div>
+        <button onclick="recommendPromo()" id="recommend-btn" class="btn btn-primary btn-sm mb-3" style="width:100%;">🚀 Получить рекомендации</button>
+        <div id="promo-rec" style="color:#fff;white-space:pre-wrap;line-height:1.7;font-size:.85rem;max-height:380px;overflow-y:auto;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Модалка добавления кампании -->
+<div id="promo-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px);">
+  <div style="background:var(--card);border:1px solid var(--border2);border-radius:14px;max-width:480px;width:100%;">
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+      <div style="color:#fff;font-weight:600;">🎯 Новая кампания продвижения</div>
+      <button onclick="closePromoModal()" class="btn-ghost" style="padding:6px 12px;cursor:pointer;">✕</button>
+    </div>
+    <div style="padding:20px;">
+      <div class="mb-3">
+        <label style="color:#cbd5e1;font-size:.85rem;display:block;margin-bottom:6px;font-weight:500;">Товар</label>
+        <select id="promo-product" class="form-control">
+          <option value="">— выберите товар —</option>
+          {% for p in products %}
+          {% set ppid = p.get('productId') or p.get('id') or '' %}
+          <option value="{{ ppid }}|{{ p.title_norm[:50] }}">{{ p.title_norm[:50] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="mb-3">
+        <label style="color:#cbd5e1;font-size:.85rem;display:block;margin-bottom:6px;font-weight:500;">Ключевая фраза</label>
+        <input id="promo-keyword" type="text" class="form-control" placeholder="Например: сыворотка для лица">
+      </div>
+      <div class="mb-3">
+        <label style="color:#cbd5e1;font-size:.85rem;display:block;margin-bottom:6px;font-weight:500;">Цель — ТОП-N</label>
+        <input id="promo-target" type="number" class="form-control" value="10" min="1" max="50">
+      </div>
+      <button onclick="submitPromo()" class="btn btn-primary" style="width:100%;">Добавить →</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── AI СОВЕТНИК ──────────────────────────────────────────────────────────── -->
 <div id="tab-ai" style="display:none;padding-top:20px;">
   <div class="card-dark mb-3">
@@ -246,12 +387,68 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAudit()
 
 function tab(el, name) {
   document.querySelectorAll('.tab-link').forEach(t => t.classList.remove('active'));
-  ['products','analytics','alerts','ai'].forEach(t => {
-    document.getElementById('tab-' + t).style.display = t === name ? 'block' : 'none';
+  ['products','analytics','alerts','promo','ai'].forEach(t => {
+    const el2 = document.getElementById('tab-' + t);
+    if (el2) el2.style.display = t === name ? 'block' : 'none';
   });
   el.classList.add('active');
   return false;
 }
+
+function openPromoModal(pid, title) {
+  document.getElementById('promo-modal').style.display = 'flex';
+  document.getElementById('promo-keyword').value = '';
+  document.getElementById('promo-target').value = 10;
+  if (pid && title) {
+    const sel = document.getElementById('promo-product');
+    for (let i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].value.startsWith(pid + '|')) { sel.selectedIndex = i; break; }
+    }
+  } else {
+    document.getElementById('promo-product').selectedIndex = 0;
+  }
+  setTimeout(() => document.getElementById('promo-keyword').focus(), 100);
+}
+function closePromoModal() {
+  document.getElementById('promo-modal').style.display = 'none';
+}
+async function submitPromo() {
+  const sel = document.getElementById('promo-product').value;
+  const keyword = document.getElementById('promo-keyword').value.trim();
+  const target = parseInt(document.getElementById('promo-target').value) || 10;
+  if (!sel || !keyword) { alert('Заполни товар и фразу'); return; }
+  const [pid, title] = sel.split('|');
+  try {
+    await fetch('/shop/{{ client.id }}/promo/add', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({product_id: pid, title: title, keyword: keyword, target: target})
+    });
+    location.reload();
+  } catch(e) { alert('Ошибка: ' + e); }
+}
+async function deletePromo(id) {
+  if (!confirm('Удалить кампанию?')) return;
+  await fetch('/shop/{{ client.id }}/promo/' + id + '/delete', {method:'POST'});
+  location.reload();
+}
+async function recommendPromo() {
+  const btn = document.getElementById('recommend-btn');
+  const out = document.getElementById('promo-rec');
+  btn.disabled = true;
+  btn.textContent = '🔍 Думаю...';
+  out.textContent = '';
+  try {
+    const r = await fetch('/shop/{{ client.id }}/promo/recommend', {method:'POST'});
+    const d = await r.json();
+    out.textContent = d.response || d.error;
+  } catch(e) { out.textContent = 'Ошибка: ' + e; }
+  btn.disabled = false;
+  btn.textContent = '🚀 Получить рекомендации';
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closePromoModal();
+});
 
 async function autoAnalyze() {
   const btn = document.getElementById('analyze-btn');
