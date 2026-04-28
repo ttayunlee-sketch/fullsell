@@ -128,24 +128,42 @@
   .badge-warn { background: rgba(251,191,36,.15); color: #fde68a; border: 1px solid rgba(251,191,36,.3); padding: 3px 10px; border-radius: 20px; font-size: .76rem; font-weight: 500; white-space: nowrap; }
   .badge-off  { background: rgba(148,163,184,.12); color: var(--muted); border: 1px solid var(--border2); padding: 3px 10px; border-radius: 20px; font-size: .76rem; font-weight: 500; white-space: nowrap; }
 
-  /* ── Table ── */
+  /* ── Table (override Bootstrap) ── */
   .table-wrap { background: var(--card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
-  table { margin: 0; }
-  table thead th {
-    background: var(--card2); color: var(--sub); font-size: .75rem;
+  .fs-table, .table-wrap .table {
+    --bs-table-bg: transparent !important;
+    --bs-table-color: #ffffff !important;
+    --bs-table-color-state: #ffffff !important;
+    --bs-table-bg-state: transparent !important;
+    --bs-table-striped-bg: transparent !important;
+    --bs-table-striped-color: #ffffff !important;
+    --bs-table-hover-bg: rgba(255,255,255,.04) !important;
+    --bs-table-hover-color: #ffffff !important;
+    --bs-table-border-color: var(--border) !important;
+    background: transparent !important;
+    color: #ffffff !important;
+    margin: 0;
+  }
+  .fs-table thead th, .table-wrap thead th {
+    background: var(--card2) !important; color: #cbd5e1 !important;
+    font-size: .75rem;
     text-transform: uppercase; letter-spacing: .06em; font-weight: 600;
     border-bottom: 1px solid var(--border); border-top: none;
     padding: 12px 14px; white-space: nowrap;
   }
-  table tbody td {
-    background: transparent; border-color: var(--border);
+  .fs-table tbody td, .table-wrap tbody td {
+    background: transparent !important;
+    border-color: var(--border) !important;
     padding: 11px 14px; vertical-align: middle;
-    color: #ffffff; font-size: .9rem; font-weight: 400;
+    color: #ffffff !important; font-size: .9rem; font-weight: 400;
   }
-  table tbody tr { border-bottom: 1px solid var(--border); transition: background .12s; }
-  table tbody tr:last-child { border-bottom: none; }
-  table tbody tr:hover td { background: rgba(255,255,255,.025); }
-  .product-name { color: var(--text2) !important; font-weight: 500; }
+  .fs-table tbody tr, .table-wrap tbody tr {
+    border-bottom: 1px solid var(--border); transition: background .12s;
+    background: transparent !important;
+  }
+  .fs-table tbody tr:last-child, .table-wrap tbody tr:last-child { border-bottom: none; }
+  .fs-table tbody tr:hover td, .table-wrap tbody tr:hover td { background: rgba(255,255,255,.04) !important; }
+  .product-name { color: #ffffff !important; font-weight: 600; }
 
   /* ── Rank ── */
   .rank-a { color: #86efac; font-weight: 700; background: rgba(74,222,128,.15); padding: 2px 9px; border-radius: 6px; font-size: .82rem; }

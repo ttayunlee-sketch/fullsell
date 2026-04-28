@@ -59,6 +59,59 @@ def _extract_image(p: dict) -> str:
                     return v[q]
     return ""
 
+
+def _pick_num(p: dict, keys, default=0):
+    """Возвращает первое числовое значение по списку ключей (учитывая вложенные dict)."""
+    for k in keys:
+        v = p.get(k)
+        if isinstance(v, dict):
+            for sub in ("value", "amount", "current", "min", "max"):
+                if v.get(sub) is not None:
+                    v = v[sub]
+                    break
+        if v is None or v == "":
+            continue
+        try:
+            return float(v) if not isinstance(v, bool) else default
+        except (TypeError, ValueError):
+            continue
+    return default
+
+
+def _normalize(p: dict) -> dict:
+    """Добавляет нормализованные поля price/views/rating/fbs/title."""
+    p["image_url"] = _extract_image(p)
+    p["title_norm"] = p.get("title") or p.get("name") or p.get("productName") or "—"
+    p["price_norm"] = int(_pick_num(p, [
+        "price", "salePrice", "fullPrice", "commercialPrice",
+        "priceMin", "minPrice", "currentPrice", "mainPrice",
+        "sellPrice", "purchasePrice"
+    ]))
+    p["views_norm"] = int(_pick_num(p, [
+        "viewers", "views", "viewCount", "viewsCount",
+        "totalViews", "showCount", "shows", "impressions"
+    ]))
+    p["rating_norm"] = round(_pick_num(p, [
+        "rating", "productRating", "averageRating", "avgRating", "score"
+    ]), 1)
+    p["fbs_norm"] = int(_pick_num(p, [
+        "quantityFbs", "fbsQuantity", "fbsStock", "stockFbs",
+        "quantity", "stock", "remaining", "available"
+    ]))
+    status = p.get("status")
+    if isinstance(status, dict):
+        p["status_norm"] = status.get("value") or status.get("name") or status.get("code") or "—"
+    elif isinstance(status, str):
+        p["status_norm"] = status
+    else:
+        p["status_norm"] = "—"
+    rank = p.get("rankInfo")
+    if isinstance(rank, dict):
+        p["rank_norm"] = rank.get("rank") or "—"
+    else:
+        p["rank_norm"] = p.get("rank") or "—"
+    return p
+
 _jinja_env = Environment(
     loader=FileSystemLoader(str(BASE_DIR / "templates")),
     cache_size=0,
@@ -142,23 +195,21 @@ async def shop_page(cid: int, request: Request, session: str = Cookie(default=No
     products = get_products(client["api_key"], client["shop_id"])
 
     for p in products:
-        p["image_url"] = _extract_image(p)
-        pid     = str(p.get("productId", ""))
-        viewers = p.get("viewers") or 0
-        rating  = float(p.get("rating") or 0)
-        fbs     = p.get("quantityFbs") or 0
-        title   = (p.get("title") or "")[:50]
-        save_snapshot(client["shop_id"], pid, viewers, rating, fbs)
-        if fbs > 0 and fbs <= 10:
-            add_alert(client["shop_id"], pid, title, "warn", f"Мало остатков FBS: {fbs} шт.")
+        _normalize(p)
+        pid   = str(p.get("productId") or p.get("id") or "")
+        title = (p["title_norm"])[:50]
+        save_snapshot(client["shop_id"], pid, p["views_norm"], p["rating_norm"], p["fbs_norm"])
+        if 0 < p["fbs_norm"] <= 10:
+            add_alert(client["shop_id"], pid, title, "warn", f"Мало остатков FBS: {p['fbs_norm']} шт.")
 
-    active = [p for p in products if p.get("status", {}).get("value") == "IN_STOCK"]
+    active = [p for p in products if p["status_norm"] in ("IN_STOCK", "ACTIVE")]
+    rated  = [p["rating_norm"] for p in products if p["rating_norm"] > 0]
     stats = {
         "total":  len(products),
         "active": len(active),
-        "views":  sum(p.get("viewers") or 0 for p in products),
-        "rating": round(sum(float(p.get("rating") or 0) for p in products) / len(products), 1) if products else 0,
-        "fbs":    sum(p.get("quantityFbs") or 0 for p in products),
+        "views":  sum(p["views_norm"] for p in products),
+        "rating": round(sum(rated) / len(rated), 1) if rated else 0,
+        "fbs":    sum(p["fbs_norm"] for p in products),
     }
 
     return templates.TemplateResponse(request, "shop.html", {
