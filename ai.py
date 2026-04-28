@@ -1,7 +1,7 @@
 import os
-import google.generativeai as genai
+import anthropic
 
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 
 
 def _build_context(client: dict, products: list) -> str:
@@ -46,17 +46,18 @@ _SYSTEM = (
 
 
 def ask(client: dict, products: list, user_message: str) -> str:
-    if not GEMINI_API_KEY:
-        return "Ошибка: GEMINI_API_KEY не задан. Добавь его в переменные окружения."
+    if not ANTHROPIC_API_KEY:
+        return "Ошибка: ANTHROPIC_API_KEY не задан. Добавь его в переменные окружения."
     try:
-        genai.configure(api_key=GEMINI_API_KEY)
-        model = genai.GenerativeModel(
-            model_name="gemini-2.0-flash",
-            system_instruction=_SYSTEM,
-        )
+        ai = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
         context = _build_context(client, products)
         prompt = f"Данные магазина:\n{context}\n\nВопрос: {user_message}"
-        response = model.generate_content(prompt)
-        return response.text
+        message = ai.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=1024,
+            system=_SYSTEM,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return message.content[0].text
     except Exception as e:
         return f"Ошибка AI: {e}"
