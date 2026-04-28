@@ -2,12 +2,13 @@ import os
 import hashlib
 from pathlib import Path
 from fastapi import FastAPI, Request, Form, Cookie
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
 from jinja2 import Environment, FileSystemLoader
-
 from database import init_db, get_clients, get_client, add_client, delete_client, get_alerts, add_alert, save_snapshot
 from uzum import get_products, test_connection
+from ai import ask as ai_ask
 
 BASE_DIR = Path(__file__).parent
 
@@ -120,6 +121,22 @@ async def shop_page(cid: int, request: Request, session: str = Cookie(default=No
         "alerts":   get_alerts(client["shop_id"]),
         "stats":    stats,
     })
+
+# ── AI ────────────────────────────────────────────────────────────────────────
+
+class AskBody(BaseModel):
+    message: str
+
+@app.post("/shop/{cid}/ai")
+async def shop_ai(cid: int, body: AskBody, session: str = Cookie(default=None)):
+    if not _auth(session):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    client = get_client(cid)
+    if not client:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+    products = get_products(client["api_key"], client["shop_id"])
+    response = ai_ask(dict(client), products, body.message)
+    return JSONResponse({"response": response})
 
 if __name__ == "__main__":
     import uvicorn

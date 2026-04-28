@@ -12,6 +12,7 @@
   <li><a href="#products" class="tab-link active" onclick="tab(this,'products')">📦 Товары</a></li>
   <li><a href="#analytics" class="tab-link" onclick="tab(this,'analytics')">📊 Аналитика</a></li>
   <li><a href="#alerts" class="tab-link" onclick="tab(this,'alerts')">🔔 Алерты {% if alerts %}<span style="background:#6366f1;color:#fff;border-radius:20px;padding:1px 7px;font-size:.72rem;">{{ alerts|length }}</span>{% endif %}</a></li>
+  <li><a href="#ai" class="tab-link" onclick="tab(this,'ai')">🤖 AI Советник</a></li>
 </ul>
 
 <!-- ── ТОВАРЫ ──────────────────────────────────────────────────────────────── -->
@@ -112,15 +113,80 @@
   {% endif %}
 </div>
 
+<!-- ── AI СОВЕТНИК ──────────────────────────────────────────────────────────── -->
+<div id="tab-ai" style="display:none;">
+  <div class="card-dark mb-3">
+    <div style="color:#94a3b8;font-size:.82rem;margin-bottom:14px;">🤖 Автоматический анализ магазина</div>
+    <button onclick="autoAnalyze()" class="btn btn-primary btn-sm mb-3" id="analyze-btn">Анализировать магазин</button>
+    <div id="ai-auto" style="color:#e2e8f0;white-space:pre-wrap;line-height:1.7;font-size:.9rem;"></div>
+  </div>
+  <div class="card-dark">
+    <div style="color:#94a3b8;font-size:.82rem;margin-bottom:10px;">Задать вопрос AI</div>
+    <div id="ai-chat" style="max-height:340px;overflow-y:auto;margin-bottom:12px;display:flex;flex-direction:column;gap:10px;"></div>
+    <div style="display:flex;gap:8px;">
+      <input type="text" id="ai-input" class="form-control" placeholder="Например: почему упали просмотры?"
+        style="background:#252836;border:1px solid #313449;color:#e2e8f0;border-radius:8px;"
+        onkeydown="if(event.key==='Enter')sendAI()">
+      <button onclick="sendAI()" class="btn btn-primary btn-sm" style="white-space:nowrap;">Спросить →</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 function tab(el, name) {
   document.querySelectorAll('.tab-link').forEach(t => t.classList.remove('active'));
-  ['products','analytics','alerts'].forEach(t => {
+  ['products','analytics','alerts','ai'].forEach(t => {
     document.getElementById('tab-' + t).style.display = t === name ? 'block' : 'none';
   });
   el.classList.add('active');
   return false;
+}
+
+async function autoAnalyze() {
+  const btn = document.getElementById('analyze-btn');
+  const out = document.getElementById('ai-auto');
+  btn.disabled = true;
+  btn.textContent = '🔍 Анализирую...';
+  out.textContent = '';
+  try {
+    const r = await fetch('/shop/{{ client.id }}/ai', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({message: 'Проанализируй магазин. Укажи: 1) главные проблемы, 2) конкретные товары требующие внимания, 3) рекомендации по улучшению продаж.'})
+    });
+    const d = await r.json();
+    out.textContent = d.response || d.error;
+  } catch(e) { out.textContent = 'Ошибка: ' + e; }
+  btn.disabled = false;
+  btn.textContent = 'Анализировать снова';
+}
+
+async function sendAI() {
+  const input = document.getElementById('ai-input');
+  const chat  = document.getElementById('ai-chat');
+  const msg   = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  const userEl = document.createElement('div');
+  userEl.style = 'background:#252836;padding:8px 12px;border-radius:8px;color:#e2e8f0;align-self:flex-end;max-width:80%;font-size:.88rem;';
+  userEl.textContent = msg;
+  chat.appendChild(userEl);
+  const aiEl = document.createElement('div');
+  aiEl.style = 'background:#1e2235;border:1px solid #6366f1;padding:8px 12px;border-radius:8px;color:#e2e8f0;max-width:90%;font-size:.88rem;white-space:pre-wrap;line-height:1.6;';
+  aiEl.textContent = '🔍 Думаю...';
+  chat.appendChild(aiEl);
+  chat.scrollTop = chat.scrollHeight;
+  try {
+    const r = await fetch('/shop/{{ client.id }}/ai', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({message: msg})
+    });
+    const d = await r.json();
+    aiEl.textContent = d.response || d.error;
+  } catch(e) { aiEl.textContent = 'Ошибка: ' + e; }
+  chat.scrollTop = chat.scrollHeight;
 }
 
 // Chart data from Jinja
