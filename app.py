@@ -14,6 +14,51 @@ BASE_DIR = Path(__file__).parent
 
 app = FastAPI()
 
+
+def _extract_image(p: dict) -> str:
+    """Извлекает URL фото товара из разных форматов UZUM API."""
+    photos = p.get("photos") or []
+    if photos and isinstance(photos, list):
+        ph = photos[0]
+        if isinstance(ph, str):
+            return ph
+        if isinstance(ph, dict):
+            for k in ("link", "url", "src", "photoUrl"):
+                v = ph.get(k)
+                if v and isinstance(v, str):
+                    return v
+            photo = ph.get("photo")
+            if isinstance(photo, str):
+                return photo
+            if isinstance(photo, dict):
+                for size in ("800", "540", "480", "400", "320", "240", "200"):
+                    val = photo.get(size)
+                    if isinstance(val, str):
+                        return val
+                    if isinstance(val, dict):
+                        for q in ("high", "low", "url", "src"):
+                            if val.get(q):
+                                return val[q]
+                for v in photo.values():
+                    if isinstance(v, str) and v.startswith("http"):
+                        return v
+                    if isinstance(v, dict):
+                        for q in ("high", "low", "url", "src"):
+                            if v.get(q):
+                                return v[q]
+            key = ph.get("key") or ph.get("hash") or ph.get("id")
+            if key:
+                return f"https://images.uzum.uz/{key}/t800.jpg"
+    for k in ("coverPhoto", "photoUrl", "image", "imageUrl", "mainPhoto", "main_photo"):
+        v = p.get(k)
+        if isinstance(v, str) and v:
+            return v
+        if isinstance(v, dict):
+            for q in ("url", "link", "src", "high", "low"):
+                if v.get(q):
+                    return v[q]
+    return ""
+
 _jinja_env = Environment(
     loader=FileSystemLoader(str(BASE_DIR / "templates")),
     cache_size=0,
@@ -97,6 +142,7 @@ async def shop_page(cid: int, request: Request, session: str = Cookie(default=No
     products = get_products(client["api_key"], client["shop_id"])
 
     for p in products:
+        p["image_url"] = _extract_image(p)
         pid     = str(p.get("productId", ""))
         viewers = p.get("viewers") or 0
         rating  = float(p.get("rating") or 0)
