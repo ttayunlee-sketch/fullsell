@@ -2,12 +2,21 @@ import requests
 
 SELLER_URL = "https://api-seller.uzum.uz/api/seller-openapi"
 
+_HEADERS = {
+    "Authorization": "",
+    "Accept-Language": "ru-RU,ru;q=0.9",
+    "Accept": "application/json",
+}
+
+def _h(api_key: str) -> dict:
+    return {**_HEADERS, "Authorization": api_key}
+
 def get_products(api_key: str, shop_id: int, filter_type: str = "ALL") -> list:
     try:
         r = requests.get(
             f"{SELLER_URL}/v1/product/shop/{shop_id}",
-            headers={"Authorization": api_key},
-            params={"page": 0, "size": 50, "filter": filter_type},
+            headers=_h(api_key),
+            params={"page": 0, "size": 50, "filter": filter_type, "lang": "ru"},
             timeout=10
         )
         if r.status_code == 200:
@@ -20,8 +29,8 @@ def test_connection(api_key: str, shop_id: int) -> bool:
     try:
         r = requests.get(
             f"{SELLER_URL}/v1/product/shop/{shop_id}",
-            headers={"Authorization": api_key},
-            params={"page": 0, "size": 1, "filter": "ALL"},
+            headers=_h(api_key),
+            params={"page": 0, "size": 1, "filter": "ALL", "lang": "ru"},
             timeout=8
         )
         return r.status_code == 200

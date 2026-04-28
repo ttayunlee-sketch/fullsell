@@ -78,10 +78,47 @@ def _pick_num(p: dict, keys, default=0):
     return default
 
 
+def _pick_ru_title(p: dict) -> str:
+    """Выбирает русское название товара из разных форматов UZUM API."""
+    for k in ("titleRu", "title_ru", "nameRu", "name_ru", "russianTitle"):
+        v = p.get(k)
+        if isinstance(v, str) and v.strip():
+            return v
+    for k in ("title", "name", "productName"):
+        v = p.get(k)
+        if isinstance(v, dict):
+            for sub in ("ru", "ru_RU", "russian", "RU"):
+                if isinstance(v.get(sub), str) and v[sub].strip():
+                    return v[sub]
+            for sub in ("uz", "default", "value"):
+                if isinstance(v.get(sub), str) and v[sub].strip():
+                    return v[sub]
+        if isinstance(v, list):
+            for item in v:
+                if isinstance(item, dict):
+                    lang = (item.get("language") or item.get("lang") or item.get("locale") or "").lower()
+                    val = item.get("value") or item.get("text") or item.get("title") or item.get("name")
+                    if lang.startswith("ru") and isinstance(val, str) and val.strip():
+                        return val
+            for item in v:
+                if isinstance(item, dict):
+                    val = item.get("value") or item.get("text") or item.get("title") or item.get("name")
+                    if isinstance(val, str) and val.strip():
+                        return val
+        if isinstance(v, str) and v.strip():
+            return v
+    locs = p.get("localizedTitles") or p.get("translations") or p.get("locales")
+    if isinstance(locs, dict):
+        for sub in ("ru", "ru_RU", "russian", "RU"):
+            if isinstance(locs.get(sub), str) and locs[sub].strip():
+                return locs[sub]
+    return "—"
+
+
 def _normalize(p: dict) -> dict:
     """Добавляет нормализованные поля price/views/rating/fbs/title."""
     p["image_url"] = _extract_image(p)
-    p["title_norm"] = p.get("title") or p.get("name") or p.get("productName") or "—"
+    p["title_norm"] = _pick_ru_title(p)
     p["price_norm"] = int(_pick_num(p, [
         "price", "salePrice", "fullPrice", "commercialPrice",
         "priceMin", "minPrice", "currentPrice", "mainPrice",
