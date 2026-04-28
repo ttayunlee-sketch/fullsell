@@ -92,19 +92,19 @@
             {% endif %}
           </td>
           <td class="product-name" style="max-width:240px;">{{ (p.get('title') or '—')[:55] }}</td>
-          <td style="white-space:nowrap;color:#cbd5e1;">{{ "{:,}".format(p.get('price', 0) or 0) }} <span style="font-size:.75rem;color:#94a3b8;">сум</span></td>
+          <td style="white-space:nowrap;color:#ffffff;">{{ "{:,}".format(p.get('price', 0) or 0) }} <span style="font-size:.75rem;color:#e2e8f0;">сум</span></td>
           <td>
             <span style="color:#f59e0b;font-size:.85rem;">★</span>
-            <span style="color:#f1f5f9;">{{ p.get('rating', '—') }}</span>
+            <span style="color:#ffffff;">{{ p.get('rating', '—') }}</span>
           </td>
-          <td style="color:#cbd5e1;">{{ "{:,}".format(p.get('viewers', 0) or 0) }}</td>
+          <td style="color:#ffffff;">{{ "{:,}".format(p.get('viewers', 0) or 0) }}</td>
           <td>
             {% if fbs <= 10 and fbs > 0 %}
               <span class="badge-warn">⚠ {{ fbs }}</span>
             {% elif fbs == 0 %}
-              <span style="color:#94a3b8;">—</span>
+              <span style="color:#e2e8f0;">—</span>
             {% else %}
-              <span style="color:#cbd5e1;">{{ fbs }} шт.</span>
+              <span style="color:#ffffff;">{{ fbs }} шт.</span>
             {% endif %}
           </td>
           <td>
@@ -122,9 +122,9 @@
     </table>
   </div>
   {% else %}
-  <div class="card-dark text-center py-5" style="color:#94a3b8;">
+  <div class="card-dark text-center py-5" style="color:#e2e8f0;">
     <div style="font-size:2.5rem;margin-bottom:12px;">📦</div>
-    <div style="color:#cbd5e1;font-weight:500;">Товары не загружены</div>
+    <div style="color:#ffffff;font-weight:500;">Товары не загружены</div>
     <div style="font-size:.85rem;margin-top:4px;">Проверьте API ключ и Shop ID</div>
   </div>
   {% endif %}
@@ -135,19 +135,19 @@
   <div class="row g-3">
     <div class="col-md-5">
       <div class="card-dark">
-        <div style="color:#cbd5e1;font-size:.8rem;margin-bottom:14px;font-weight:500;">📈 Статусы товаров</div>
+        <div style="color:#ffffff;font-size:.8rem;margin-bottom:14px;font-weight:500;">📈 Статусы товаров</div>
         <canvas id="statusChart"></canvas>
       </div>
     </div>
     <div class="col-md-7">
       <div class="card-dark">
-        <div style="color:#cbd5e1;font-size:.8rem;margin-bottom:14px;font-weight:500;">📦 Остатки FBS</div>
+        <div style="color:#ffffff;font-size:.8rem;margin-bottom:14px;font-weight:500;">📦 Остатки FBS</div>
         <canvas id="stockChart"></canvas>
       </div>
     </div>
     <div class="col-12">
       <div class="card-dark">
-        <div style="color:#cbd5e1;font-size:.8rem;margin-bottom:14px;font-weight:500;">⭐ Рейтинг товаров</div>
+        <div style="color:#ffffff;font-size:.8rem;margin-bottom:14px;font-weight:500;">⭐ Рейтинг товаров</div>
         <canvas id="ratingChart"></canvas>
       </div>
     </div>
@@ -160,7 +160,7 @@
     {% for a in alerts %}
     <div class="alert-row {{ a.kind }}">
       <div class="alert-time">{{ a.created_at }}</div>
-      <div style="color:#f1f5f9;margin-top:3px;font-size:.88rem;">
+      <div style="color:#ffffff;margin-top:3px;font-size:.88rem;">
         {% if a.kind == 'up' %}📈{% elif a.kind == 'down' %}📉{% else %}⚠️{% endif %}
         <b>{{ a.title }}</b> — {{ a.message }}
       </div>
@@ -169,8 +169,8 @@
   {% else %}
     <div class="card-dark text-center py-5">
       <div style="font-size:2rem;margin-bottom:10px;">🔔</div>
-      <div style="color:#cbd5e1;font-weight:500;">Алертов пока нет</div>
-      <div style="font-size:.84rem;color:#94a3b8;margin-top:4px;">Появятся после первой проверки позиций</div>
+      <div style="color:#ffffff;font-weight:500;">Алертов пока нет</div>
+      <div style="font-size:.84rem;color:#e2e8f0;margin-top:4px;">Появятся после первой проверки позиций</div>
     </div>
   {% endif %}
 </div>
@@ -181,19 +181,19 @@
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
       <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;">🤖</div>
       <div>
-        <div style="color:#f1f5f9;font-weight:500;font-size:.9rem;">AI Советник</div>
-        <div style="color:#94a3b8;font-size:.76rem;">Анализ на основе данных магазина</div>
+        <div style="color:#ffffff;font-weight:500;font-size:.9rem;">AI Советник</div>
+        <div style="color:#e2e8f0;font-size:.76rem;">Анализ на основе данных магазина</div>
       </div>
     </div>
     <button onclick="autoAnalyze()" class="btn btn-primary btn-sm mb-3" id="analyze-btn">Анализировать магазин</button>
-    <div id="ai-auto" style="color:#f1f5f9;white-space:pre-wrap;line-height:1.75;font-size:.875rem;"></div>
+    <div id="ai-auto" style="color:#ffffff;white-space:pre-wrap;line-height:1.75;font-size:.875rem;"></div>
   </div>
   <div class="card-dark">
-    <div style="color:#cbd5e1;font-size:.8rem;font-weight:500;margin-bottom:12px;">Задать вопрос</div>
+    <div style="color:#ffffff;font-size:.8rem;font-weight:500;margin-bottom:12px;">Задать вопрос</div>
     <div id="ai-chat" style="max-height:360px;overflow-y:auto;margin-bottom:12px;display:flex;flex-direction:column;gap:8px;"></div>
     <div style="display:flex;gap:8px;">
       <input type="text" id="ai-input" class="form-control" placeholder="Например: почему упали просмотры?"
-        style="background:#0d1019;border:1px solid var(--border2);color:#f1f5f9;border-radius:8px;font-size:.875rem;"
+        style="background:#0d1019;border:1px solid var(--border2);color:#ffffff;border-radius:8px;font-size:.875rem;"
         onkeydown="if(event.key==='Enter')sendAI()">
       <button onclick="sendAI()" class="btn btn-primary btn-sm px-3" style="white-space:nowrap;">→</button>
     </div>
@@ -237,11 +237,11 @@ async function sendAI() {
   if (!msg) return;
   input.value = '';
   const userEl = document.createElement('div');
-  userEl.style.cssText = 'background:#1e2236;padding:8px 12px;border-radius:8px;color:#f1f5f9;align-self:flex-end;max-width:80%;font-size:.875rem;border:1px solid #252a3d;';
+  userEl.style.cssText = 'background:#1e2236;padding:8px 12px;border-radius:8px;color:#ffffff;align-self:flex-end;max-width:80%;font-size:.875rem;border:1px solid #252a3d;';
   userEl.textContent = msg;
   chat.appendChild(userEl);
   const aiEl = document.createElement('div');
-  aiEl.style.cssText = 'background:#0d1019;border:1px solid #6366f1;padding:10px 14px;border-radius:8px;color:#f1f5f9;max-width:92%;font-size:.875rem;white-space:pre-wrap;line-height:1.7;';
+  aiEl.style.cssText = 'background:#0d1019;border:1px solid #6366f1;padding:10px 14px;border-radius:8px;color:#ffffff;max-width:92%;font-size:.875rem;white-space:pre-wrap;line-height:1.7;';
   aiEl.textContent = '🔍 Думаю...';
   chat.appendChild(aiEl);
   chat.scrollTop = chat.scrollHeight;

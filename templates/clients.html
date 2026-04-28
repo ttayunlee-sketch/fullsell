@@ -23,7 +23,7 @@
         <div style="width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,#818cf8,#a78bfa);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0;">🏪</div>
         <div>
           <div style="font-weight:600;color:#fff;font-size:1rem;">{{ c.name }}</div>
-          <div style="color:#94a3b8;font-size:.82rem;margin-top:3px;">Shop ID: <span style="color:#cbd5e1;font-weight:500;">{{ c.shop_id }}</span> · добавлен {{ c.added_at }}</div>
+          <div style="color:#e2e8f0;font-size:.82rem;margin-top:3px;">Shop ID: <span style="color:#ffffff;font-weight:500;">{{ c.shop_id }}</span> · добавлен {{ c.added_at }}</div>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:10px;">
@@ -40,7 +40,7 @@
   <div class="card-dark text-center py-5">
     <div style="font-size:3rem;margin-bottom:14px;">🏪</div>
     <div style="font-weight:600;color:#f1f5f9;margin-bottom:6px;font-size:1.05rem;">Нет клиентов</div>
-    <div style="font-size:.88rem;color:#94a3b8;">Нажмите «+ Добавить магазин» чтобы начать</div>
+    <div style="font-size:.88rem;color:#e2e8f0;">Нажмите «+ Добавить магазин» чтобы начать</div>
   </div>
 {% endif %}
 
@@ -55,15 +55,15 @@
       <form method="post" action="/clients/add">
         <div class="modal-body">
           <div class="mb-3">
-            <label style="color:#cbd5e1;font-size:.88rem;margin-bottom:6px;display:block;font-weight:500;">Название клиента</label>
+            <label style="color:#ffffff;font-size:.88rem;margin-bottom:6px;display:block;font-weight:500;">Название клиента</label>
             <input type="text" name="name" class="form-control" placeholder="Например: procosmetics.uz" required>
           </div>
           <div class="mb-3">
-            <label style="color:#cbd5e1;font-size:.88rem;margin-bottom:6px;display:block;font-weight:500;">Shop ID</label>
+            <label style="color:#ffffff;font-size:.88rem;margin-bottom:6px;display:block;font-weight:500;">Shop ID</label>
             <input type="number" name="shop_id" class="form-control" placeholder="110091" required>
           </div>
           <div class="mb-3">
-            <label style="color:#cbd5e1;font-size:.88rem;margin-bottom:6px;display:block;font-weight:500;">API ключ UZUM</label>
+            <label style="color:#ffffff;font-size:.88rem;margin-bottom:6px;display:block;font-weight:500;">API ключ UZUM</label>
             <input type="password" name="api_key" class="form-control" placeholder="Ключ из cabinet.uzum.uz" required>
           </div>
         </div>
