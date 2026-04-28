@@ -3,3 +3,4 @@ uvicorn[standard]
 jinja2
 requests
 python-multipart
+psycopg2-binary
