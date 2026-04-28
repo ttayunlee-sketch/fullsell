@@ -10,9 +10,8 @@ from jinja2 import Environment, FileSystemLoader
 from database import (
     init_db, get_clients, get_client, add_client, delete_client,
     get_alerts, add_alert, save_snapshots_batch, last_snapshot_age_minutes,
-    add_promotion, get_promotions, delete_promotion, update_promotion_status,
 )
-from uzum import get_products, test_connection
+from uzum import get_products, test_connection, get_finance_orders, get_finance_expenses
 from ai import ask as ai_ask, audit_product
 
 _AUDIT_CACHE = {}  # (shop_id, product_id) -> (timestamp, text)
@@ -263,96 +262,131 @@ async def shop_page(cid: int, request: Request, session: str = Cookie(default=No
         "fbs":    sum(p["fbs_norm"] for p in products),
     }
 
-    candidates = _promo_candidates(products)
+    orders_raw = get_finance_orders(client["api_key"], client["shop_id"], days=30)
+    finance = _finance_summary(orders_raw, products)
 
     return templates.TemplateResponse(request, "shop.html", {
-        "client":     client,
-        "products":   products,
-        "alerts":     get_alerts(client["shop_id"]),
-        "stats":      stats,
-        "promotions": get_promotions(client["shop_id"]),
-        "candidates": candidates,
+        "client":   client,
+        "products": products,
+        "alerts":   get_alerts(client["shop_id"]),
+        "stats":    stats,
+        "finance":  finance,
     })
 
 
-def _promo_candidates(products: list) -> list:
-    """Кандидаты на продвижение: хороший рейтинг, но мало просмотров."""
-    scored = []
-    for p in products:
-        if p["status_norm"] not in ("IN_STOCK", "ACTIVE"):
+def _norm_order(o: dict) -> dict:
+    """Нормализует заказ — извлекает productId, title, qty, amount, status, date."""
+    pid = (o.get("productId") or o.get("product_id") or o.get("skuId")
+           or o.get("sku_id") or o.get("sku") or "")
+    pid = str(pid)
+    title = (o.get("productTitle") or o.get("title") or o.get("productName")
+             or o.get("name") or "")
+    if isinstance(title, dict):
+        title = title.get("ru") or title.get("value") or ""
+    qty = o.get("quantity") or o.get("qty") or o.get("count") or o.get("amount") or 1
+    try:
+        qty = int(qty) or 1
+    except (TypeError, ValueError):
+        qty = 1
+    amount = (o.get("totalAmount") or o.get("totalPrice") or o.get("sum")
+              or o.get("amount") or o.get("price") or o.get("revenue") or 0)
+    if isinstance(amount, dict):
+        amount = amount.get("value") or amount.get("amount") or 0
+    try:
+        amount = float(amount)
+    except (TypeError, ValueError):
+        amount = 0.0
+    status = o.get("status")
+    if isinstance(status, dict):
+        status = status.get("value") or status.get("name") or ""
+    status = str(status or "")
+    created = (o.get("createdAt") or o.get("date") or o.get("orderDate")
+               or o.get("created_at") or o.get("orderCreatedAt") or "")
+    date_str = ""
+    if isinstance(created, str) and len(created) >= 10:
+        date_str = created[:10]
+    elif isinstance(created, (int, float)):
+        from datetime import datetime as _dt
+        ts = created / 1000 if created > 1e12 else created
+        try:
+            date_str = _dt.fromtimestamp(ts).date().isoformat()
+        except Exception:
+            pass
+    return {
+        "productId": pid, "title": title, "qty": qty,
+        "amount": amount, "status": status, "date": date_str,
+    }
+
+
+def _finance_summary(orders_raw: list, products: list) -> dict:
+    """Считает выручку, ТОП-10 товаров, продажи по дням, конверсию."""
+    orders = [_norm_order(o) for o in orders_raw]
+    # успешные заказы (не отменённые)
+    cancelled_set = {"CANCELLED", "CANCELED", "REJECTED", "RETURNED"}
+    valid = [o for o in orders if o["status"].upper() not in cancelled_set]
+
+    total_revenue = sum(o["amount"] for o in valid)
+    total_qty = sum(o["qty"] for o in valid)
+    avg_check = (total_revenue / len(valid)) if valid else 0
+
+    # ТОП по выручке
+    by_product = {}
+    for o in valid:
+        pid = o["productId"]
+        if not pid:
             continue
-        rating = p["rating_norm"]
-        views = p["views_norm"]
-        fbs = p["fbs_norm"]
-        if fbs <= 0:
+        slot = by_product.setdefault(pid, {"pid": pid, "title": o["title"], "qty": 0, "amount": 0.0})
+        slot["qty"] += o["qty"]
+        slot["amount"] += o["amount"]
+
+    # связываем с фото и нормализованным названием
+    by_pid_product = {str(p.get("productId") or p.get("id") or ""): p for p in products}
+    for slot in by_product.values():
+        prod = by_pid_product.get(slot["pid"])
+        if prod:
+            slot["image_url"] = prod.get("image_url") or ""
+            if prod.get("title_norm") and not slot["title"]:
+                slot["title"] = prod["title_norm"]
+        else:
+            slot["image_url"] = ""
+        if not slot["title"]:
+            slot["title"] = "Товар " + slot["pid"]
+
+    top = sorted(by_product.values(), key=lambda x: -x["amount"])[:10]
+
+    # продажи по дням
+    by_day = {}
+    for o in valid:
+        d = o["date"]
+        if not d:
             continue
-        if rating >= 4.0 and views < 500:
-            score = (rating - 3.5) * 100 - min(views, 1000) / 10
-            scored.append((score, p))
-        elif rating >= 4.5:
-            score = (rating - 3.5) * 50
-            scored.append((score, p))
-    scored.sort(key=lambda x: -x[0])
-    return [p for _, p in scored[:8]]
+        slot = by_day.setdefault(d, {"qty": 0, "amount": 0.0})
+        slot["qty"] += o["qty"]
+        slot["amount"] += o["amount"]
+    days_sorted = sorted(by_day.items())  # [(date, {qty, amount}), ...]
+
+    # конверсия
+    total_views = sum(p.get("views_norm") or 0 for p in products)
+    conversion = (total_qty / total_views * 100) if total_views else 0
+
+    return {
+        "total_revenue": int(total_revenue),
+        "total_qty": total_qty,
+        "orders_count": len(valid),
+        "avg_check": int(avg_check),
+        "conversion": round(conversion, 2),
+        "top": top,
+        "days": days_sorted,
+        "raw_count": len(orders),
+        "cancelled_count": len(orders) - len(valid),
+    }
+
+
 
 # ── AI ────────────────────────────────────────────────────────────────────────
 
 class AskBody(BaseModel):
     message: str
-
-class PromoBody(BaseModel):
-    product_id: str
-    title: str
-    keyword: str
-    target: int = 10
-
-
-@app.post("/shop/{cid}/promo/add")
-async def promo_add(cid: int, body: PromoBody, session: str = Cookie(default=None)):
-    if not _auth(session):
-        return JSONResponse({"error": "Unauthorized"}, status_code=401)
-    client = get_client(cid)
-    if not client:
-        return JSONResponse({"error": "Not found"}, status_code=404)
-    add_promotion(client["shop_id"], body.product_id, body.title, body.keyword.strip(), body.target)
-    return JSONResponse({"ok": True})
-
-
-@app.post("/shop/{cid}/promo/{promo_id}/delete")
-async def promo_delete(cid: int, promo_id: int, session: str = Cookie(default=None)):
-    if not _auth(session):
-        return JSONResponse({"error": "Unauthorized"}, status_code=401)
-    delete_promotion(promo_id)
-    return JSONResponse({"ok": True})
-
-
-@app.post("/shop/{cid}/promo/{promo_id}/status")
-async def promo_status(cid: int, promo_id: int, status: str = Form(...), session: str = Cookie(default=None)):
-    if not _auth(session):
-        return JSONResponse({"error": "Unauthorized"}, status_code=401)
-    update_promotion_status(promo_id, status)
-    return JSONResponse({"ok": True})
-
-
-@app.post("/shop/{cid}/promo/recommend")
-async def promo_recommend(cid: int, session: str = Cookie(default=None)):
-    if not _auth(session):
-        return JSONResponse({"error": "Unauthorized"}, status_code=401)
-    client = get_client(cid)
-    if not client:
-        return JSONResponse({"error": "Not found"}, status_code=404)
-    products = get_products(client["api_key"], client["shop_id"])
-    for p in products:
-        _normalize(p)
-    msg = (
-        "Ты — стратег по продвижению на UZUM. На основе данных магазина выбери ТОП-5 товаров "
-        "которые стоит продвигать прямо сейчас. Для каждого укажи: 1) название, 2) почему именно его, "
-        "3) какие 3-5 ключевых фраз для продвижения, 4) ожидаемый эффект. "
-        "Будь конкретен. Без markdown."
-    )
-    response = ai_ask(dict(client), products, msg)
-    return JSONResponse({"response": response})
-
 
 @app.post("/shop/{cid}/product/{pid}/audit")
 async def product_audit(cid: int, pid: str, session: str = Cookie(default=None)):
