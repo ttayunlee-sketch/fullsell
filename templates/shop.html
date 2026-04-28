@@ -82,7 +82,8 @@
         {% set fbs = p.fbs_norm %}
         {% set rank = p.rank_norm %}
         {% set status = p.status_norm %}
-        <tr>
+        {% set ppid = p.get('productId') or p.get('id') or '' %}
+        <tr style="cursor:pointer;" onclick="auditProduct('{{ ppid }}', '{{ p.title_norm[:55]|replace("'", "\\'") }}', '{{ p.image_url }}')" title="Кликни для AI-аудита">
           <td style="padding:8px 10px 8px 14px;">
             {% if p.image_url %}
               <img src="{{ p.image_url }}" class="product-img" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
@@ -203,8 +204,46 @@
   </div>
 </div>
 
+<!-- ── AUDIT MODAL ───────────────────────────────────────────────────────── -->
+<div id="audit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px);">
+  <div style="background:var(--card);border:1px solid var(--border2);border-radius:14px;max-width:720px;width:100%;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;">
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;">
+      <img id="audit-img" src="" style="width:52px;height:52px;border-radius:8px;object-fit:cover;background:var(--border2);" referrerpolicy="no-referrer" onerror="this.style.opacity='.3'">
+      <div style="flex:1;min-width:0;">
+        <div style="color:#ffffff;font-weight:600;font-size:.95rem;">🤖 AI-аудит товара</div>
+        <div id="audit-title" style="color:#cbd5e1;font-size:.85rem;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+      </div>
+      <button onclick="closeAudit()" class="btn-ghost" style="padding:6px 12px;cursor:pointer;font-size:1rem;">✕</button>
+    </div>
+    <div id="audit-body" style="padding:20px;overflow-y:auto;color:#ffffff;font-size:.9rem;line-height:1.75;white-space:pre-wrap;flex:1;">
+      🔍 Анализирую карточку товара...
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+async function auditProduct(pid, title, img) {
+  if (!pid) return;
+  const modal = document.getElementById('audit-modal');
+  const body  = document.getElementById('audit-body');
+  document.getElementById('audit-title').textContent = title;
+  document.getElementById('audit-img').src = img || '';
+  body.textContent = '🔍 Анализирую карточку товара (фото + цена + рейтинг + просмотры)...';
+  modal.style.display = 'flex';
+  try {
+    const r = await fetch('/shop/{{ client.id }}/product/' + encodeURIComponent(pid) + '/audit', {method:'POST'});
+    const d = await r.json();
+    body.textContent = d.audit || d.error || 'Пустой ответ';
+  } catch(e) {
+    body.textContent = 'Ошибка: ' + e;
+  }
+}
+function closeAudit() {
+  document.getElementById('audit-modal').style.display = 'none';
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAudit(); });
+
 function tab(el, name) {
   document.querySelectorAll('.tab-link').forEach(t => t.classList.remove('active'));
   ['products','analytics','alerts','ai'].forEach(t => {

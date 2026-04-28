@@ -12,7 +12,10 @@ from database import (
     get_alerts, add_alert, save_snapshots_batch, last_snapshot_age_minutes
 )
 from uzum import get_products, test_connection
-from ai import ask as ai_ask
+from ai import ask as ai_ask, audit_product
+
+_AUDIT_CACHE = {}  # (shop_id, product_id) -> (timestamp, text)
+_AUDIT_TTL = 3600  # 1 час
 
 BASE_DIR = Path(__file__).parent
 
@@ -270,6 +273,36 @@ async def shop_page(cid: int, request: Request, session: str = Cookie(default=No
 
 class AskBody(BaseModel):
     message: str
+
+@app.post("/shop/{cid}/product/{pid}/audit")
+async def product_audit(cid: int, pid: str, session: str = Cookie(default=None)):
+    import time as _t
+    if not _auth(session):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    client = get_client(cid)
+    if not client:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+
+    cache_key = (client["shop_id"], pid)
+    cached = _AUDIT_CACHE.get(cache_key)
+    if cached and _t.time() - cached[0] < _AUDIT_TTL:
+        return JSONResponse({"audit": cached[1], "cached": True})
+
+    products = get_products(client["api_key"], client["shop_id"])
+    target = None
+    for p in products:
+        ppid = str(p.get("productId") or p.get("id") or "")
+        if ppid == pid:
+            _normalize(p)
+            target = p
+            break
+    if not target:
+        return JSONResponse({"error": "Товар не найден"}, status_code=404)
+
+    audit = audit_product(target, shop_name=client["name"])
+    _AUDIT_CACHE[cache_key] = (_t.time(), audit)
+    return JSONResponse({"audit": audit, "cached": False})
+
 
 @app.post("/shop/{cid}/ai")
 async def shop_ai(cid: int, body: AskBody, session: str = Cookie(default=None)):
