@@ -7,41 +7,163 @@
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-  :root { --bg: #0f1117; --card: #1a1d27; --border: #252836; --muted: #64748b; --sub: #94a3b8; }
-  body { background: var(--bg); color: #e2e8f0; font-family: 'Segoe UI', sans-serif; min-height: 100vh; }
-  .sidebar { background: var(--card); width: 230px; min-height: 100vh; position: fixed; left: 0; top: 0; padding: 24px 14px; border-right: 1px solid var(--border); }
-  .main { margin-left: 230px; padding: 32px; }
-  .logo { font-size: 1.3rem; font-weight: 700; color: #fff; margin-bottom: 28px; padding: 0 6px; }
-  .logo .accent { background: linear-gradient(135deg,#6366f1,#8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-  .nav-link { display: flex; align-items: center; gap: 9px; padding: 9px 12px; border-radius: 8px; color: var(--sub); text-decoration: none; margin-bottom: 2px; transition: all .15s; font-size: .9rem; }
-  .nav-link:hover, .nav-link.active { background: var(--border); color: #fff; }
-  .card-dark { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
-  .stat { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; }
-  .stat-val { font-size: 1.9rem; font-weight: 700; color: #fff; line-height: 1.1; }
-  .stat-lbl { color: var(--muted); font-size: .82rem; margin-top: 4px; }
-  .page-title { font-size: 1.35rem; font-weight: 700; color: #fff; }
-  .page-sub { color: var(--muted); font-size: .88rem; margin-bottom: 24px; margin-top: 2px; }
-  .btn-primary { background: linear-gradient(135deg,#6366f1,#8b5cf6); border: none; border-radius: 8px; }
-  .btn-primary:hover { opacity: .88; background: linear-gradient(135deg,#6366f1,#8b5cf6); }
-  .badge-ok   { background: rgba(34,197,94,.12); color: #22c55e; padding: 3px 10px; border-radius: 20px; font-size: .77rem; white-space: nowrap; }
-  .badge-warn { background: rgba(234,179,8,.12); color: #eab308; padding: 3px 10px; border-radius: 20px; font-size: .77rem; white-space: nowrap; }
-  .badge-off  { background: rgba(100,116,139,.12); color: var(--sub); padding: 3px 10px; border-radius: 20px; font-size: .77rem; white-space: nowrap; }
-  .alert-row { border-left: 3px solid #6366f1; background: var(--card); border-radius: 0 8px 8px 0; padding: 10px 14px; margin-bottom: 8px; }
-  .alert-row.up   { border-left-color: #22c55e; }
-  .alert-row.down { border-left-color: #ef4444; }
-  .alert-row.warn { border-left-color: #eab308; }
-  .alert-time { font-size: .78rem; color: var(--muted); }
-  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; display: inline-block; margin-right: 6px; box-shadow: 0 0 6px #22c55e88; }
-  table thead th { background: var(--border); color: var(--sub); font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; border: none; padding: 11px 14px; }
-  table tbody td { background: var(--card); border-color: var(--border); padding: 11px 14px; vertical-align: middle; color: var(--sub); }
-  table tbody tr:hover td { background: #21253300; }
-  .rank-a { color: #22c55e; font-weight: 700; }
-  .rank-b { color: #3b82f6; font-weight: 700; }
-  .rank-c { color: #f59e0b; font-weight: 700; }
-  .rank-d { color: var(--muted); font-weight: 700; }
-  .product-name { color: #e2e8f0 !important; font-weight: 500; max-width: 220px; }
-  canvas { max-height: 200px; }
-  .footer-status { position: absolute; bottom: 20px; left: 14px; right: 14px; background: var(--border); border-radius: 8px; padding: 10px 12px; font-size: .8rem; color: var(--muted); }
+  :root {
+    --bg: #080b12;
+    --card: #111420;
+    --card2: #161a28;
+    --border: #1e2236;
+    --border2: #252a3d;
+    --muted: #4a5568;
+    --sub: #7c8db5;
+    --text: #dde4f0;
+    --accent: #6366f1;
+    --accent2: #8b5cf6;
+    --green: #22c55e;
+    --yellow: #f59e0b;
+    --red: #ef4444;
+    --blue: #3b82f6;
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    background: var(--card);
+    width: 220px;
+    min-height: 100vh;
+    position: fixed; left: 0; top: 0;
+    padding: 22px 12px;
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+  }
+  .logo {
+    font-size: 1.15rem; font-weight: 800; color: #fff;
+    margin-bottom: 28px; padding: 4px 8px;
+    letter-spacing: -.02em;
+  }
+  .logo .accent {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .logo .dot { color: var(--accent); -webkit-text-fill-color: var(--accent); }
+  .nav-link {
+    display: flex; align-items: center; gap: 9px;
+    padding: 8px 10px; border-radius: 8px;
+    color: var(--sub); text-decoration: none;
+    margin-bottom: 2px; font-size: .875rem;
+    transition: all .15s;
+  }
+  .nav-link:hover { background: var(--border2); color: var(--text); }
+  .nav-link.active {
+    background: rgba(99,102,241,.12);
+    color: #a5b4fc;
+    border-left: 2px solid var(--accent);
+    padding-left: 8px;
+  }
+  .nav-icon { font-size: 1rem; width: 20px; text-align: center; }
+  .nav-section { font-size: .68rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); padding: 14px 10px 4px; }
+  .sidebar-bottom { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border); }
+  .status-pill {
+    display: flex; align-items: center; gap: 7px;
+    background: rgba(34,197,94,.08); border: 1px solid rgba(34,197,94,.15);
+    border-radius: 20px; padding: 5px 10px;
+    font-size: .75rem; color: #4ade80;
+  }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 5px var(--green); flex-shrink: 0; }
+
+  /* ── Main ── */
+  .main { margin-left: 220px; padding: 28px 32px; max-width: 1400px; }
+  .page-header { margin-bottom: 24px; }
+  .page-title { font-size: 1.4rem; font-weight: 700; color: #fff; letter-spacing: -.02em; }
+  .page-sub { color: var(--muted); font-size: .84rem; margin-top: 3px; }
+
+  /* ── Cards ── */
+  .card-dark {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 20px;
+  }
+  .card-dark:hover { border-color: var(--border2); }
+
+  /* ── Stat cards ── */
+  .stat {
+    background: var(--card2); border: 1px solid var(--border);
+    border-radius: 14px; padding: 18px 20px;
+    position: relative; overflow: hidden;
+    transition: border-color .2s, transform .15s;
+  }
+  .stat:hover { border-color: var(--border2); transform: translateY(-1px); }
+  .stat-accent { height: 3px; border-radius: 3px 3px 0 0; position: absolute; top: 0; left: 0; right: 0; }
+  .stat-icon { font-size: 1.4rem; margin-bottom: 10px; display: block; }
+  .stat-val { font-size: 1.85rem; font-weight: 700; color: #fff; line-height: 1; letter-spacing: -.03em; }
+  .stat-lbl { color: var(--muted); font-size: .78rem; margin-top: 5px; }
+
+  /* ── Buttons ── */
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none; border-radius: 8px; font-weight: 500;
+    box-shadow: 0 2px 12px rgba(99,102,241,.25);
+    transition: opacity .15s, box-shadow .15s;
+  }
+  .btn-primary:hover { opacity: .9; box-shadow: 0 4px 20px rgba(99,102,241,.4); background: linear-gradient(135deg, var(--accent), var(--accent2)); }
+  .btn-ghost {
+    background: var(--border); border: none; border-radius: 8px;
+    color: var(--sub); font-size: .84rem;
+    transition: background .15s, color .15s;
+  }
+  .btn-ghost:hover { background: var(--border2); color: var(--text); }
+
+  /* ── Badges ── */
+  .badge-ok   { background: rgba(34,197,94,.1); color: #4ade80; border: 1px solid rgba(34,197,94,.2); padding: 2px 9px; border-radius: 20px; font-size: .74rem; white-space: nowrap; }
+  .badge-warn { background: rgba(245,158,11,.1); color: #fbbf24; border: 1px solid rgba(245,158,11,.2); padding: 2px 9px; border-radius: 20px; font-size: .74rem; white-space: nowrap; }
+  .badge-off  { background: rgba(100,116,139,.08); color: var(--muted); border: 1px solid var(--border); padding: 2px 9px; border-radius: 20px; font-size: .74rem; white-space: nowrap; }
+
+  /* ── Table ── */
+  .table-wrap { background: var(--card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+  table { margin: 0; }
+  table thead th {
+    background: var(--card2); color: var(--sub); font-size: .73rem;
+    text-transform: uppercase; letter-spacing: .06em;
+    border-bottom: 1px solid var(--border); border-top: none;
+    padding: 11px 14px; white-space: nowrap;
+  }
+  table tbody td {
+    background: transparent; border-color: var(--border);
+    padding: 10px 14px; vertical-align: middle;
+    color: var(--sub); font-size: .875rem;
+  }
+  table tbody tr { border-bottom: 1px solid var(--border); transition: background .12s; }
+  table tbody tr:last-child { border-bottom: none; }
+  table tbody tr:hover td { background: rgba(255,255,255,.02); }
+  .product-name { color: var(--text) !important; font-weight: 500; }
+
+  /* ── Rank ── */
+  .rank-a { color: var(--green); font-weight: 700; background: rgba(34,197,94,.1); padding: 1px 8px; border-radius: 6px; }
+  .rank-b { color: var(--blue); font-weight: 700; background: rgba(59,130,246,.1); padding: 1px 8px; border-radius: 6px; }
+  .rank-c { color: var(--yellow); font-weight: 700; background: rgba(245,158,11,.1); padding: 1px 8px; border-radius: 6px; }
+  .rank-d { color: var(--muted); font-weight: 700; background: var(--border); padding: 1px 8px; border-radius: 6px; }
+
+  /* ── Alerts ── */
+  .alert-row { border-left: 3px solid var(--accent); background: var(--card2); border-radius: 0 10px 10px 0; padding: 10px 14px; margin-bottom: 6px; transition: border-color .15s; }
+  .alert-row.up   { border-left-color: var(--green); }
+  .alert-row.down { border-left-color: var(--red); }
+  .alert-row.warn { border-left-color: var(--yellow); }
+  .alert-time { font-size: .76rem; color: var(--muted); }
+
+  /* ── Tabs ── */
+  .tab-link { color: var(--muted); text-decoration: none; padding: 8px 14px; display: inline-block; border-bottom: 2px solid transparent; font-size: .875rem; transition: all .15s; }
+  .tab-link:hover { color: var(--text); }
+  .tab-link.active { color: #a5b4fc; border-bottom-color: var(--accent); }
+
+  /* ── Product photo ── */
+  .product-img { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; background: var(--border); border: 1px solid var(--border2); }
+  .product-img-placeholder { width: 40px; height: 40px; border-radius: 8px; background: var(--border2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+
+  canvas { max-height: 220px; }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
 </style>
 {% block head %}{% endblock %}
 </head>
@@ -49,14 +171,23 @@
 <div class="sidebar">
   <div class="logo">FS <span class="accent">FullSell</span></div>
   <nav>
-    <a href="/clients" class="nav-link {% if active_page=='clients' %}active{% endif %}">🏪 Клиенты</a>
+    <div class="nav-section">Навигация</div>
+    <a href="/clients" class="nav-link {% if active_page=='clients' %}active{% endif %}">
+      <span class="nav-icon">🏪</span> Клиенты
+    </a>
     {% if client_id %}
-    <a href="/shop/{{ client_id }}" class="nav-link {% if active_page=='shop' %}active{% endif %}">📦 Магазин</a>
+    <a href="/shop/{{ client_id }}" class="nav-link {% if active_page=='shop' %}active{% endif %}">
+      <span class="nav-icon">📦</span> Магазин
+    </a>
     {% endif %}
-    <a href="/logout" class="nav-link" style="margin-top:auto;">🚪 Выйти</a>
   </nav>
-  <div class="footer-status">
-    <span class="status-dot"></span>Система активна
+  <div class="sidebar-bottom">
+    <a href="/logout" class="nav-link mb-2">
+      <span class="nav-icon">🚪</span> Выйти
+    </a>
+    <div class="status-pill">
+      <span class="status-dot"></span> Система активна
+    </div>
   </div>
 </div>
 

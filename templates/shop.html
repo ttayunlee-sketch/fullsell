@@ -4,47 +4,108 @@
 {% block title %}{{ client.name }} — FullSell{% endblock %}
 {% block content %}
 
-<div class="page-title">{{ client.name }}</div>
-<div class="page-sub">Shop ID: {{ client.shop_id }} · обновлено только что</div>
+<div class="page-header">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:1.2rem;">🏪</div>
+    <div>
+      <div class="page-title">{{ client.name }}</div>
+      <div class="page-sub">Shop ID: {{ client.shop_id }} · обновлено только что</div>
+    </div>
+  </div>
+</div>
+
+<!-- Статы -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="stat">
+      <div class="stat-accent" style="background:linear-gradient(90deg,#6366f1,#8b5cf6);"></div>
+      <span class="stat-icon">📦</span>
+      <div class="stat-val">{{ stats.total }}</div>
+      <div class="stat-lbl">Всего товаров</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat">
+      <div class="stat-accent" style="background:linear-gradient(90deg,#22c55e,#16a34a);"></div>
+      <span class="stat-icon">✅</span>
+      <div class="stat-val">{{ stats.active }}</div>
+      <div class="stat-lbl">Активных</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat">
+      <div class="stat-accent" style="background:linear-gradient(90deg,#3b82f6,#2563eb);"></div>
+      <span class="stat-icon">👁</span>
+      <div class="stat-val">{{ "{:,}".format(stats.views) }}</div>
+      <div class="stat-lbl">Просмотров</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat">
+      <div class="stat-accent" style="background:linear-gradient(90deg,#f59e0b,#d97706);"></div>
+      <span class="stat-icon">⭐</span>
+      <div class="stat-val">{{ stats.rating }}</div>
+      <div class="stat-lbl">Средний рейтинг</div>
+    </div>
+  </div>
+</div>
 
 <!-- Вкладки -->
-<ul class="nav mb-4" id="tabs" style="border-bottom:1px solid #252836;gap:4px;">
-  <li><a href="#products" class="tab-link active" onclick="tab(this,'products')">📦 Товары</a></li>
-  <li><a href="#analytics" class="tab-link" onclick="tab(this,'analytics')">📊 Аналитика</a></li>
-  <li><a href="#alerts" class="tab-link" onclick="tab(this,'alerts')">🔔 Алерты {% if alerts %}<span style="background:#6366f1;color:#fff;border-radius:20px;padding:1px 7px;font-size:.72rem;">{{ alerts|length }}</span>{% endif %}</a></li>
-  <li><a href="#ai" class="tab-link" onclick="tab(this,'ai')">🤖 AI Советник</a></li>
+<ul class="nav mb-0" style="border-bottom:1px solid var(--border);gap:2px;margin-bottom:0 !important;">
+  <li><a href="#" class="tab-link active" onclick="return tab(this,'products')">📦 Товары</a></li>
+  <li><a href="#" class="tab-link" onclick="return tab(this,'analytics')">📊 Аналитика</a></li>
+  <li><a href="#" class="tab-link" onclick="return tab(this,'alerts')">🔔 Алерты
+    {% if alerts %}<span style="background:#6366f1;color:#fff;border-radius:20px;padding:1px 7px;font-size:.7rem;margin-left:4px;">{{ alerts|length }}</span>{% endif %}
+  </a></li>
+  <li><a href="#" class="tab-link" onclick="return tab(this,'ai')">🤖 AI Советник</a></li>
 </ul>
 
 <!-- ── ТОВАРЫ ──────────────────────────────────────────────────────────────── -->
-<div id="tab-products">
-  <!-- Статы -->
-  <div class="row g-3 mb-4">
-    <div class="col-6 col-md-3"><div class="stat"><div class="stat-val">{{ stats.total }}</div><div class="stat-lbl">Всего товаров</div></div></div>
-    <div class="col-6 col-md-3"><div class="stat"><div class="stat-val">{{ stats.active }}</div><div class="stat-lbl">Активных</div></div></div>
-    <div class="col-6 col-md-3"><div class="stat"><div class="stat-val">{{ "{:,}".format(stats.views) }}</div><div class="stat-lbl">Просмотров</div></div></div>
-    <div class="col-6 col-md-3"><div class="stat"><div class="stat-val">{{ stats.rating }} ⭐</div><div class="stat-lbl">Средний рейтинг</div></div></div>
-  </div>
-
+<div id="tab-products" style="padding-top:20px;">
   {% if products %}
-  <div class="card-dark p-0" style="overflow:hidden;">
+  <div class="table-wrap">
     <table class="table table-borderless mb-0">
       <thead>
-        <tr><th>Товар</th><th>Цена</th><th>Рейтинг</th><th>Просмотры</th><th>Остаток FBS</th><th>Ранг</th><th>Статус</th></tr>
+        <tr>
+          <th style="width:48px;"></th>
+          <th>Товар</th>
+          <th>Цена</th>
+          <th>Рейтинг</th>
+          <th>Просмотры</th>
+          <th>FBS</th>
+          <th>Ранг</th>
+          <th>Статус</th>
+        </tr>
       </thead>
       <tbody>
         {% for p in products %}
         {% set status = p.get('status', {}).get('value', '') %}
         {% set fbs = p.get('quantityFbs', 0) or 0 %}
+        {% set photos = p.get('photos') or [] %}
+        {% set img_url = photos[0].get('url', '') if photos else (p.get('coverPhoto') or p.get('photoUrl') or '') %}
         <tr>
-          <td class="product-name">{{ (p.get('title') or '—')[:50] }}</td>
-          <td>{{ "{:,}".format(p.get('price', 0) or 0) }} сум</td>
-          <td>⭐ {{ p.get('rating', '—') }}</td>
-          <td>👁 {{ "{:,}".format(p.get('viewers', 0) or 0) }}</td>
+          <td style="padding:8px 10px 8px 14px;">
+            {% if img_url %}
+              <img src="{{ img_url }}" class="product-img" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+              <div class="product-img-placeholder" style="display:none;">📦</div>
+            {% else %}
+              <div class="product-img-placeholder">📦</div>
+            {% endif %}
+          </td>
+          <td class="product-name" style="max-width:240px;">{{ (p.get('title') or '—')[:55] }}</td>
+          <td style="white-space:nowrap;color:#7c8db5;">{{ "{:,}".format(p.get('price', 0) or 0) }} <span style="font-size:.75rem;color:#4a5568;">сум</span></td>
+          <td>
+            <span style="color:#f59e0b;font-size:.85rem;">★</span>
+            <span style="color:#dde4f0;">{{ p.get('rating', '—') }}</span>
+          </td>
+          <td style="color:#7c8db5;">{{ "{:,}".format(p.get('viewers', 0) or 0) }}</td>
           <td>
             {% if fbs <= 10 and fbs > 0 %}
-              <span class="badge-warn">⚠ {{ fbs }} шт.</span>
+              <span class="badge-warn">⚠ {{ fbs }}</span>
+            {% elif fbs == 0 %}
+              <span style="color:#4a5568;">—</span>
             {% else %}
-              📦 {{ fbs }} шт.
+              <span style="color:#7c8db5;">{{ fbs }} шт.</span>
             {% endif %}
           </td>
           <td>
@@ -62,31 +123,32 @@
     </table>
   </div>
   {% else %}
-  <div class="card-dark text-center py-5" style="color:#64748b;">
-    <div style="font-size:2rem;margin-bottom:10px;">📦</div>
-    <div>Не удалось загрузить товары. Проверьте API ключ.</div>
+  <div class="card-dark text-center py-5" style="color:#4a5568;">
+    <div style="font-size:2.5rem;margin-bottom:12px;">📦</div>
+    <div style="color:#7c8db5;font-weight:500;">Товары не загружены</div>
+    <div style="font-size:.85rem;margin-top:4px;">Проверьте API ключ и Shop ID</div>
   </div>
   {% endif %}
 </div>
 
 <!-- ── АНАЛИТИКА ──────────────────────────────────────────────────────────── -->
-<div id="tab-analytics" style="display:none;">
+<div id="tab-analytics" style="display:none;padding-top:20px;">
   <div class="row g-3">
-    <div class="col-md-6">
+    <div class="col-md-5">
       <div class="card-dark">
-        <div style="color:#94a3b8;font-size:.82rem;margin-bottom:14px;">📈 Распределение по статусам</div>
+        <div style="color:#7c8db5;font-size:.8rem;margin-bottom:14px;font-weight:500;">📈 Статусы товаров</div>
         <canvas id="statusChart"></canvas>
       </div>
     </div>
-    <div class="col-md-6">
+    <div class="col-md-7">
       <div class="card-dark">
-        <div style="color:#94a3b8;font-size:.82rem;margin-bottom:14px;">📦 Остатки FBS по товарам</div>
+        <div style="color:#7c8db5;font-size:.8rem;margin-bottom:14px;font-weight:500;">📦 Остатки FBS</div>
         <canvas id="stockChart"></canvas>
       </div>
     </div>
     <div class="col-12">
       <div class="card-dark">
-        <div style="color:#94a3b8;font-size:.82rem;margin-bottom:14px;">⭐ Рейтинг товаров</div>
+        <div style="color:#7c8db5;font-size:.8rem;margin-bottom:14px;font-weight:500;">⭐ Рейтинг товаров</div>
         <canvas id="ratingChart"></canvas>
       </div>
     </div>
@@ -94,40 +156,47 @@
 </div>
 
 <!-- ── АЛЕРТЫ ──────────────────────────────────────────────────────────────── -->
-<div id="tab-alerts" style="display:none;">
+<div id="tab-alerts" style="display:none;padding-top:20px;">
   {% if alerts %}
     {% for a in alerts %}
     <div class="alert-row {{ a.kind }}">
       <div class="alert-time">{{ a.created_at }}</div>
-      <div style="color:#e2e8f0;margin-top:2px;">
+      <div style="color:#dde4f0;margin-top:3px;font-size:.88rem;">
         {% if a.kind == 'up' %}📈{% elif a.kind == 'down' %}📉{% else %}⚠️{% endif %}
         <b>{{ a.title }}</b> — {{ a.message }}
       </div>
     </div>
     {% endfor %}
   {% else %}
-    <div class="card-dark text-center py-5" style="color:#64748b;">
+    <div class="card-dark text-center py-5">
       <div style="font-size:2rem;margin-bottom:10px;">🔔</div>
-      <div>Алертов пока нет. Они появятся после первой проверки позиций.</div>
+      <div style="color:#7c8db5;font-weight:500;">Алертов пока нет</div>
+      <div style="font-size:.84rem;color:#4a5568;margin-top:4px;">Появятся после первой проверки позиций</div>
     </div>
   {% endif %}
 </div>
 
 <!-- ── AI СОВЕТНИК ──────────────────────────────────────────────────────────── -->
-<div id="tab-ai" style="display:none;">
+<div id="tab-ai" style="display:none;padding-top:20px;">
   <div class="card-dark mb-3">
-    <div style="color:#94a3b8;font-size:.82rem;margin-bottom:14px;">🤖 Автоматический анализ магазина</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+      <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;">🤖</div>
+      <div>
+        <div style="color:#dde4f0;font-weight:500;font-size:.9rem;">AI Советник</div>
+        <div style="color:#4a5568;font-size:.76rem;">Анализ на основе данных магазина</div>
+      </div>
+    </div>
     <button onclick="autoAnalyze()" class="btn btn-primary btn-sm mb-3" id="analyze-btn">Анализировать магазин</button>
-    <div id="ai-auto" style="color:#e2e8f0;white-space:pre-wrap;line-height:1.7;font-size:.9rem;"></div>
+    <div id="ai-auto" style="color:#dde4f0;white-space:pre-wrap;line-height:1.75;font-size:.875rem;"></div>
   </div>
   <div class="card-dark">
-    <div style="color:#94a3b8;font-size:.82rem;margin-bottom:10px;">Задать вопрос AI</div>
-    <div id="ai-chat" style="max-height:340px;overflow-y:auto;margin-bottom:12px;display:flex;flex-direction:column;gap:10px;"></div>
+    <div style="color:#7c8db5;font-size:.8rem;font-weight:500;margin-bottom:12px;">Задать вопрос</div>
+    <div id="ai-chat" style="max-height:360px;overflow-y:auto;margin-bottom:12px;display:flex;flex-direction:column;gap:8px;"></div>
     <div style="display:flex;gap:8px;">
       <input type="text" id="ai-input" class="form-control" placeholder="Например: почему упали просмотры?"
-        style="background:#252836;border:1px solid #313449;color:#e2e8f0;border-radius:8px;"
+        style="background:#0d1019;border:1px solid var(--border2);color:#dde4f0;border-radius:8px;font-size:.875rem;"
         onkeydown="if(event.key==='Enter')sendAI()">
-      <button onclick="sendAI()" class="btn btn-primary btn-sm" style="white-space:nowrap;">Спросить →</button>
+      <button onclick="sendAI()" class="btn btn-primary btn-sm px-3" style="white-space:nowrap;">→</button>
     </div>
   </div>
 </div>
@@ -169,11 +238,11 @@ async function sendAI() {
   if (!msg) return;
   input.value = '';
   const userEl = document.createElement('div');
-  userEl.style = 'background:#252836;padding:8px 12px;border-radius:8px;color:#e2e8f0;align-self:flex-end;max-width:80%;font-size:.88rem;';
+  userEl.style.cssText = 'background:#1e2236;padding:8px 12px;border-radius:8px;color:#dde4f0;align-self:flex-end;max-width:80%;font-size:.875rem;border:1px solid #252a3d;';
   userEl.textContent = msg;
   chat.appendChild(userEl);
   const aiEl = document.createElement('div');
-  aiEl.style = 'background:#1e2235;border:1px solid #6366f1;padding:8px 12px;border-radius:8px;color:#e2e8f0;max-width:90%;font-size:.88rem;white-space:pre-wrap;line-height:1.6;';
+  aiEl.style.cssText = 'background:#0d1019;border:1px solid #6366f1;padding:10px 14px;border-radius:8px;color:#dde4f0;max-width:92%;font-size:.875rem;white-space:pre-wrap;line-height:1.7;';
   aiEl.textContent = '🔍 Думаю...';
   chat.appendChild(aiEl);
   chat.scrollTop = chat.scrollHeight;
@@ -189,9 +258,8 @@ async function sendAI() {
   chat.scrollTop = chat.scrollHeight;
 }
 
-// Chart data from Jinja
 const products = {{ products | tojson }};
-const names    = products.map(p => (p.title || '').substring(0, 22));
+const names    = products.map(p => (p.title || '').substring(0, 20));
 const stocks   = products.map(p => p.quantityFbs || 0);
 const ratings  = products.map(p => parseFloat(p.rating) || 0);
 const active   = products.filter(p => p?.status?.value === 'IN_STOCK').length;
@@ -199,27 +267,27 @@ const other    = products.length - active;
 
 const chartOpts = {
   responsive: true,
-  plugins: { legend: { labels: { color: '#94a3b8', boxWidth: 12, font: { size: 12 } } } },
+  plugins: { legend: { labels: { color: '#7c8db5', boxWidth: 12, font: { size: 11 } } } },
   scales: {
-    x: { ticks: { color: '#64748b', font: { size: 11 } }, grid: { color: '#252836' } },
-    y: { ticks: { color: '#64748b', font: { size: 11 } }, grid: { color: '#252836' } }
+    x: { ticks: { color: '#4a5568', font: { size: 10 } }, grid: { color: '#1e2236' } },
+    y: { ticks: { color: '#4a5568', font: { size: 10 } }, grid: { color: '#1e2236' } }
   }
 };
 
 new Chart(document.getElementById('statusChart'), {
   type: 'doughnut',
   data: {
-    labels: ['Активных', 'Остальные'],
-    datasets: [{ data: [active, other], backgroundColor: ['#6366f1','#252836'], borderWidth: 0 }]
+    labels: ['Активных', 'Неактивных'],
+    datasets: [{ data: [active, other], backgroundColor: ['#6366f1','#1e2236'], borderWidth: 0, borderRadius: 4 }]
   },
-  options: { responsive: true, plugins: { legend: { labels: { color: '#94a3b8' } } } }
+  options: { responsive: true, plugins: { legend: { labels: { color: '#7c8db5' } } }, cutout: '65%' }
 });
 
 new Chart(document.getElementById('stockChart'), {
   type: 'bar',
   data: {
     labels: names,
-    datasets: [{ data: stocks, backgroundColor: stocks.map(s => s <= 10 && s > 0 ? '#ef4444' : '#6366f1'), borderRadius: 5 }]
+    datasets: [{ data: stocks, backgroundColor: stocks.map(s => s <= 10 && s > 0 ? '#ef4444' : '#6366f1'), borderRadius: 4, borderSkipped: false }]
   },
   options: { ...chartOpts, plugins: { legend: { display: false } } }
 });
@@ -228,15 +296,9 @@ new Chart(document.getElementById('ratingChart'), {
   type: 'bar',
   data: {
     labels: names,
-    datasets: [{ data: ratings, backgroundColor: '#22c55e', borderRadius: 5 }]
+    datasets: [{ data: ratings, backgroundColor: '#22c55e', borderRadius: 4, borderSkipped: false }]
   },
   options: { ...chartOpts, plugins: { legend: { display: false } }, scales: { ...chartOpts.scales, y: { ...chartOpts.scales.y, min: 0, max: 5 } } }
 });
 </script>
-
-<style>
-  .tab-link { color: #64748b; text-decoration: none; padding: 8px 14px; display: inline-block; border-bottom: 2px solid transparent; font-size: .88rem; transition: all .15s; }
-  .tab-link:hover { color: #e2e8f0; }
-  .tab-link.active { color: #6366f1; border-bottom-color: #6366f1; }
-</style>
 {% endblock %}
