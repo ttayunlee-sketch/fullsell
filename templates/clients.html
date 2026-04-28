@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Клиенты — FullSell{% endblock %}
+{% block content %}
+<div class="page-title">Клиенты FullSell</div>
+<div class="page-sub">Подключённые магазины UZUM</div>
+
+<!-- Кнопка добавить -->
+<button class="btn btn-primary btn-sm mb-4" data-bs-toggle="modal" data-bs-target="#addModal">
+  + Добавить магазин
+</button>
+
+<!-- Список клиентов -->
+{% if clients %}
+  {% for c in clients %}
+  <div style="background:#1a1d27;border:1px solid #252836;border-radius:10px;padding:16px 20px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;transition:border-color .2s;" onmouseover="this.style.borderColor='#6366f1'" onmouseout="this.style.borderColor='#252836'">
+    <div>
+      <div style="font-weight:600;color:#fff;font-size:.95rem;">{{ c.name }}</div>
+      <div style="color:#64748b;font-size:.8rem;margin-top:3px;">Shop ID: {{ c.shop_id }} · добавлен {{ c.added_at }}</div>
+    </div>
+    <div class="d-flex align-items-center gap-3">
+      <span class="badge-ok">Активен</span>
+      <a href="/shop/{{ c.id }}" class="btn btn-primary btn-sm">Открыть →</a>
+      <form method="post" action="/clients/{{ c.id }}/delete" onsubmit="return confirm('Удалить магазин {{ c.name }}?')">
+        <button type="submit" class="btn btn-sm" style="background:#252836;color:#94a3b8;border:none;">✕</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+  <div class="card-dark text-center py-5" style="color:#64748b;">
+    <div style="font-size:2.5rem;margin-bottom:12px;">🏪</div>
+    <div style="font-weight:600;color:#94a3b8;margin-bottom:6px;">Нет клиентов</div>
+    <div style="font-size:.85rem;">Нажмите «+ Добавить магазин» чтобы начать</div>
+  </div>
+{% endif %}
+
+<!-- Модалка добавления -->
+<div class="modal fade" id="addModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content" style="background:#1a1d27;border:1px solid #252836;border-radius:12px;">
+      <div class="modal-header" style="border-color:#252836;">
+        <h5 class="modal-title" style="color:#fff;">Добавить магазин</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="/clients/add">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label style="color:#94a3b8;font-size:.85rem;margin-bottom:6px;display:block;">Название клиента</label>
+            <input type="text" name="name" class="form-control" placeholder="Например: procosmetics.uz" required
+              style="background:#252836;border:1px solid #313449;color:#e2e8f0;border-radius:8px;">
+          </div>
+          <div class="mb-3">
+            <label style="color:#94a3b8;font-size:.85rem;margin-bottom:6px;display:block;">Shop ID</label>
+            <input type="number" name="shop_id" class="form-control" placeholder="110091" required
+              style="background:#252836;border:1px solid #313449;color:#e2e8f0;border-radius:8px;">
+          </div>
+          <div class="mb-3">
+            <label style="color:#94a3b8;font-size:.85rem;margin-bottom:6px;display:block;">API ключ UZUM</label>
+            <input type="password" name="api_key" class="form-control" placeholder="Ключ из cabinet.uzum.uz" required
+              style="background:#252836;border:1px solid #313449;color:#e2e8f0;border-radius:8px;">
+          </div>
+        </div>
+        <div class="modal-footer" style="border-color:#252836;">
+          <button type="button" class="btn btn-sm" style="background:#252836;color:#94a3b8;border:none;" data-bs-dismiss="modal">Отмена</button>
+          <button type="submit" class="btn btn-primary btn-sm">Добавить →</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% endblock %}
