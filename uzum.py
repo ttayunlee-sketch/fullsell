@@ -48,6 +48,44 @@ def invalidate_cache(shop_id: int = None):
                 _CACHE.pop(k, None)
 
 
+def debug_finance_orders(api_key: str, shop_id: int, days: int = 30) -> dict:
+    """Возвращает сырой ответ UZUM без кеша — для отладки."""
+    now_ms = int(time.time() * 1000)
+    from_ms = now_ms - days * 24 * 60 * 60 * 1000
+    out = {"requests": []}
+    variants = [
+        # как в спеке — shopIds array, ms timestamps
+        [("shopIds", shop_id), ("dateFrom", from_ms), ("dateTo", now_ms),
+         ("page", 0), ("size", 20), ("group", "false")],
+        # без дат
+        [("shopIds", shop_id), ("page", 0), ("size", 20), ("group", "false")],
+        # с очень широким диапазоном (3 года)
+        [("shopIds", shop_id),
+         ("dateFrom", now_ms - 3 * 365 * 24 * 60 * 60 * 1000),
+         ("dateTo", now_ms),
+         ("page", 0), ("size", 20), ("group", "false")],
+    ]
+    for params in variants:
+        attempt = {"params": dict(params)}
+        try:
+            r = requests.get(
+                f"{SELLER_URL}/v1/finance/orders",
+                headers=_h(api_key),
+                params=params,
+                timeout=20,
+            )
+            attempt["status"] = r.status_code
+            attempt["url"] = r.url
+            try:
+                attempt["body"] = r.json()
+            except Exception:
+                attempt["body_text"] = r.text[:500]
+        except Exception as e:
+            attempt["error"] = str(e)
+        out["requests"].append(attempt)
+    return out
+
+
 def get_finance_orders(api_key: str, shop_id: int, days: int = 30, force: bool = False) -> list:
     """Получает реальные заказы продавца за N последних дней. UZUM ждёт shopIds (array) и timestamp в миллисекундах."""
     key = (shop_id, "orders", days)
