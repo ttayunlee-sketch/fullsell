@@ -300,8 +300,9 @@ def _norm_order(o: dict) -> dict:
     if isinstance(status, dict):
         status = status.get("value") or status.get("name") or ""
     status = str(status or "")
-    created = (o.get("createdAt") or o.get("date") or o.get("orderDate")
-               or o.get("created_at") or o.get("orderCreatedAt") or "")
+    created = (o.get("dateCreated") or o.get("createdAt") or o.get("date")
+               or o.get("orderDate") or o.get("created_at") or o.get("orderCreatedAt")
+               or o.get("dateService") or "")
     date_str = ""
     if isinstance(created, str) and len(created) >= 10:
         date_str = created[:10]
@@ -321,9 +322,10 @@ def _norm_order(o: dict) -> dict:
 def _finance_summary(orders_raw: list, products: list) -> dict:
     """Считает выручку, ТОП-10 товаров, продажи по дням, конверсию."""
     orders = [_norm_order(o) for o in orders_raw]
-    # успешные заказы (не отменённые)
+    # успешные заказы (не отменённые целиком)
     cancelled_set = {"CANCELLED", "CANCELED", "REJECTED", "RETURNED"}
     valid = [o for o in orders if o["status"].upper() not in cancelled_set]
+    # PARTIALLY_CANCELLED оставляем — там часть продана
 
     total_revenue = sum(o["amount"] for o in valid)
     total_qty = sum(o["qty"] for o in valid)

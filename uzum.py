@@ -49,91 +49,94 @@ def invalidate_cache(shop_id: int = None):
 
 
 def get_finance_orders(api_key: str, shop_id: int, days: int = 30, force: bool = False) -> list:
-    """Получает реальные заказы продавца за N последних дней."""
-    from datetime import datetime, timedelta
+    """Получает реальные заказы продавца за N последних дней. UZUM ждёт shopIds (array) и timestamp в миллисекундах."""
     key = (shop_id, "orders", days)
     now = time.time()
     if not force:
         cached = _CACHE.get(key)
         if cached and now - cached[0] < _CACHE_TTL:
             return cached[1]
-    to_d = datetime.now().date()
-    from_d = to_d - timedelta(days=days)
-    base_params = {
-        "shopId": shop_id,
-        "page": 0,
-        "size": 500,
-        "lang": "ru",
-    }
-    # пробуем разные форматы дат — UZUM может использовать любой
-    date_variants = [
-        {"dateFrom": from_d.isoformat(), "dateTo": to_d.isoformat()},
-        {"from": from_d.isoformat(), "to": to_d.isoformat()},
-        {"startDate": from_d.isoformat(), "endDate": to_d.isoformat()},
-        {},  # без дат — последние заказы
-    ]
-    for dp in date_variants:
+    now_ms = int(now * 1000)
+    from_ms = now_ms - days * 24 * 60 * 60 * 1000
+    all_items = []
+    page = 0
+    page_size = 100
+    last_resp_keys = None
+    last_status = None
+    while page < 50:  # safety
         try:
             r = requests.get(
                 f"{SELLER_URL}/v1/finance/orders",
                 headers=_h(api_key),
-                params={**base_params, **dp},
-                timeout=15,
+                params=[
+                    ("shopIds", shop_id),
+                    ("dateFrom", from_ms),
+                    ("dateTo", now_ms),
+                    ("page", page),
+                    ("size", page_size),
+                    ("group", "false"),
+                ],
+                timeout=20,
             )
-            if r.status_code == 200:
-                data = r.json()
-                orders = (
-                    data.get("orderList") if isinstance(data, dict) else None
-                ) or (
-                    data.get("orders") if isinstance(data, dict) else None
-                ) or (
-                    data.get("data") if isinstance(data, dict) else None
-                ) or (
-                    data.get("content") if isinstance(data, dict) else None
-                ) or (data if isinstance(data, list) else [])
-                _CACHE[key] = (now, orders)
-                return orders
+            last_status = r.status_code
+            if r.status_code != 200:
+                break
+            data = r.json() if r.content else {}
+            last_resp_keys = list(data.keys()) if isinstance(data, dict) else type(data).__name__
+            items = (
+                data.get("orderItems") if isinstance(data, dict) else None
+            ) or (
+                data.get("payload", {}).get("orderItems") if isinstance(data, dict) else None
+            ) or []
+            if not items:
+                break
+            all_items.extend(items)
+            total = data.get("totalElements", 0) if isinstance(data, dict) else 0
+            if len(all_items) >= total or len(items) < page_size:
+                break
+            page += 1
         except Exception:
-            continue
+            break
+    if all_items or last_status == 200:
+        _CACHE[key] = (now, all_items)
+        return all_items
     cached = _CACHE.get(key)
     return cached[1] if cached else []
 
 
 def get_finance_expenses(api_key: str, shop_id: int, days: int = 30, force: bool = False) -> list:
-    from datetime import datetime, timedelta
+    """Расходы продавца. UZUM: shopIds (array), dateFrom/dateTo в мс."""
     key = (shop_id, "expenses", days)
     now = time.time()
     if not force:
         cached = _CACHE.get(key)
         if cached and now - cached[0] < _CACHE_TTL:
             return cached[1]
-    to_d = datetime.now().date()
-    from_d = to_d - timedelta(days=days)
-    for dp in [
-        {"dateFrom": from_d.isoformat(), "dateTo": to_d.isoformat()},
-        {"from": from_d.isoformat(), "to": to_d.isoformat()},
-        {},
-    ]:
-        try:
-            r = requests.get(
-                f"{SELLER_URL}/v1/finance/expenses",
-                headers=_h(api_key),
-                params={"shopId": shop_id, "page": 0, "size": 500, **dp},
-                timeout=15,
-            )
-            if r.status_code == 200:
-                data = r.json()
-                items = (
-                    data.get("expenseList") if isinstance(data, dict) else None
-                ) or (
-                    data.get("expenses") if isinstance(data, dict) else None
-                ) or (
-                    data.get("data") if isinstance(data, dict) else None
-                ) or (data if isinstance(data, list) else [])
-                _CACHE[key] = (now, items)
-                return items
-        except Exception:
-            continue
+    now_ms = int(now * 1000)
+    from_ms = now_ms - days * 24 * 60 * 60 * 1000
+    try:
+        r = requests.get(
+            f"{SELLER_URL}/v1/finance/expenses",
+            headers=_h(api_key),
+            params=[
+                ("shopIds", shop_id),
+                ("dateFrom", from_ms),
+                ("dateTo", now_ms),
+                ("page", 0),
+                ("size", 500),
+            ],
+            timeout=20,
+        )
+        if r.status_code == 200:
+            data = r.json()
+            items = (
+                (data.get("payload") or {}).get("payments")
+                if isinstance(data, dict) else None
+            ) or []
+            _CACHE[key] = (now, items)
+            return items
+    except Exception:
+        pass
     cached = _CACHE.get(key)
     return cached[1] if cached else []
 
