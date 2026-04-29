@@ -87,59 +87,51 @@ def debug_finance_orders(api_key: str, shop_id: int, days: int = 30) -> dict:
 
 
 def get_finance_orders(api_key: str, shop_id: int, days: int = 30, force: bool = False) -> list:
-    """Получает реальные заказы продавца за N последних дней. UZUM ждёт shopIds (array) и timestamp в миллисекундах."""
+    """Заказы за N последних дней. UZUM глючит на dateFrom/dateTo — фильтруем по date на стороне Python."""
     key = (shop_id, "orders", days)
     now = time.time()
     if not force:
         cached = _CACHE.get(key)
         if cached and now - cached[0] < _CACHE_TTL:
             return cached[1]
-    now_ms = int(now * 1000)
-    from_ms = now_ms - days * 24 * 60 * 60 * 1000
+    cutoff_ms = int((now - days * 24 * 60 * 60) * 1000)
     all_items = []
     page = 0
     page_size = 100
-    last_resp_keys = None
-    last_status = None
-    while page < 50:  # safety
+    while page < 100:  # safety: до 10 000 заказов
         try:
             r = requests.get(
                 f"{SELLER_URL}/v1/finance/orders",
                 headers=_h(api_key),
                 params=[
                     ("shopIds", shop_id),
-                    ("dateFrom", from_ms),
-                    ("dateTo", now_ms),
                     ("page", page),
                     ("size", page_size),
                     ("group", "false"),
                 ],
                 timeout=20,
             )
-            last_status = r.status_code
             if r.status_code != 200:
                 break
             data = r.json() if r.content else {}
-            last_resp_keys = list(data.keys()) if isinstance(data, dict) else type(data).__name__
-            items = (
-                data.get("orderItems") if isinstance(data, dict) else None
-            ) or (
-                data.get("payload", {}).get("orderItems") if isinstance(data, dict) else None
-            ) or []
+            items = (data.get("orderItems") if isinstance(data, dict) else None) or []
             if not items:
                 break
-            all_items.extend(items)
+            # фильтруем по дате — заказы UZUM приходят отсортированные по убыванию даты
+            items_in_range = [o for o in items if (o.get("date") or 0) >= cutoff_ms]
+            all_items.extend(items_in_range)
+            # если на этой странице последний элемент уже за пределами — стоп
+            last_date = items[-1].get("date") or 0
+            if last_date < cutoff_ms:
+                break
             total = data.get("totalElements", 0) if isinstance(data, dict) else 0
-            if len(all_items) >= total or len(items) < page_size:
+            if len(items) < page_size or (total and (page + 1) * page_size >= total):
                 break
             page += 1
         except Exception:
             break
-    if all_items or last_status == 200:
-        _CACHE[key] = (now, all_items)
-        return all_items
-    cached = _CACHE.get(key)
-    return cached[1] if cached else []
+    _CACHE[key] = (now, all_items)
+    return all_items
 
 
 def get_finance_expenses(api_key: str, shop_id: int, days: int = 30, force: bool = False) -> list:

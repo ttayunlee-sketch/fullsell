@@ -205,17 +205,36 @@
     <div class="col-6 col-md-3">
       <div class="stat">
         <div class="stat-accent" style="background:linear-gradient(90deg,#a78bfa,#8b5cf6);"></div>
-        <span class="stat-icon">🧾</span>
-        <div class="stat-val">{{ "{:,}".format(finance.avg_check) }}</div>
-        <div class="stat-lbl">Средний чек</div>
+        <span class="stat-icon">💎</span>
+        <div class="stat-val">{{ "{:,}".format(finance.total_profit) }}</div>
+        <div class="stat-lbl">Чистая прибыль, сум</div>
       </div>
     </div>
-    <div class="col-6 col-md-3">
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-6 col-md-4">
+      <div class="stat">
+        <div class="stat-accent" style="background:linear-gradient(90deg,#fbbf24,#f59e0b);"></div>
+        <span class="stat-icon">🧾</span>
+        <div class="stat-val">{{ "{:,}".format(finance.avg_check) }}</div>
+        <div class="stat-lbl">Средний чек, сум</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4">
       <div class="stat">
         <div class="stat-accent" style="background:linear-gradient(90deg,#fbbf24,#f59e0b);"></div>
         <span class="stat-icon">🎯</span>
         <div class="stat-val">{{ finance.conversion }}%</div>
-        <div class="stat-lbl">Конверсия в покупку</div>
+        <div class="stat-lbl">Конверсия (заказы / просмотры)</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4">
+      <div class="stat">
+        <div class="stat-accent" style="background:linear-gradient(90deg,#f87171,#ef4444);"></div>
+        <span class="stat-icon">❌</span>
+        <div class="stat-val">{{ finance.cancelled_count }}</div>
+        <div class="stat-lbl">Отменённых заказов</div>
       </div>
     </div>
   </div>
@@ -270,15 +289,6 @@
       </div>
     </div>
 
-    {% if finance.cancelled_count > 0 %}
-    <div class="col-12">
-      <div class="card-dark" style="border-left:3px solid #f87171;">
-        <div style="color:#fca5a5;font-weight:500;">
-          ⚠ Отменённых/возвращённых заказов: <b>{{ finance.cancelled_count }}</b> из {{ finance.raw_count }}
-        </div>
-      </div>
-    </div>
-    {% endif %}
   </div>
   {% else %}
   <div class="card-dark text-center py-5">

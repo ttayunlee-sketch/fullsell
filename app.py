@@ -274,83 +274,95 @@ async def shop_page(cid: int, request: Request, session: str = Cookie(default=No
     })
 
 
+def _extract_order_image(o: dict) -> str:
+    """Извлекает URL фото товара из заказа UZUM."""
+    pi = o.get("productImage") or {}
+    photo = pi.get("photo") if isinstance(pi, dict) else None
+    if isinstance(photo, dict):
+        for size in ("240", "320", "480", "540", "120", "80", "800", "720"):
+            v = photo.get(size)
+            if isinstance(v, dict):
+                url = v.get("low") or v.get("high")
+                if url:
+                    return url
+            elif isinstance(v, str):
+                return v
+    if isinstance(pi, dict):
+        key = pi.get("photoKey")
+        if key:
+            return f"https://images.uzum.uz/{key}/t_product_240_low.jpg"
+    return ""
+
+
 def _norm_order(o: dict) -> dict:
-    """Нормализует заказ — извлекает productId, title, qty, amount, status, date."""
-    pid = (o.get("productId") or o.get("product_id") or o.get("skuId")
-           or o.get("sku_id") or o.get("sku") or "")
-    pid = str(pid)
-    title = (o.get("productTitle") or o.get("title") or o.get("productName")
-             or o.get("name") or "")
-    if isinstance(title, dict):
-        title = title.get("ru") or title.get("value") or ""
-    qty = o.get("quantity") or o.get("qty") or o.get("count") or o.get("amount") or 1
-    try:
-        qty = int(qty) or 1
-    except (TypeError, ValueError):
-        qty = 1
-    amount = (o.get("totalAmount") or o.get("totalPrice") or o.get("sum")
-              or o.get("amount") or o.get("price") or o.get("revenue") or 0)
-    if isinstance(amount, dict):
-        amount = amount.get("value") or amount.get("amount") or 0
-    try:
-        amount = float(amount)
-    except (TypeError, ValueError):
-        amount = 0.0
-    status = o.get("status")
-    if isinstance(status, dict):
-        status = status.get("value") or status.get("name") or ""
-    status = str(status or "")
-    created = (o.get("dateCreated") or o.get("createdAt") or o.get("date")
-               or o.get("orderDate") or o.get("created_at") or o.get("orderCreatedAt")
-               or o.get("dateService") or "")
+    """Нормализует заказ под реальную схему UZUM Seller API /v1/finance/orders."""
+    pid = str(o.get("productId") or "")
+    title = o.get("productTitle") or o.get("skuTitle") or ""
+    qty = int(o.get("amount") or 0)  # реально проданное; для CANCELED = 0
+    sell_price = float(o.get("sellPrice") or 0)
+    revenue = sell_price * qty
+    profit = float(o.get("sellerProfit") or 0)
+    commission = float(o.get("commission") or 0)
+    status = str(o.get("status") or "")
+    date_ms = o.get("date") or 0
     date_str = ""
-    if isinstance(created, str) and len(created) >= 10:
-        date_str = created[:10]
-    elif isinstance(created, (int, float)):
+    if isinstance(date_ms, (int, float)) and date_ms > 0:
         from datetime import datetime as _dt
-        ts = created / 1000 if created > 1e12 else created
         try:
-            date_str = _dt.fromtimestamp(ts).date().isoformat()
+            date_str = _dt.fromtimestamp(date_ms / 1000).date().isoformat()
         except Exception:
             pass
     return {
-        "productId": pid, "title": title, "qty": qty,
-        "amount": amount, "status": status, "date": date_str,
+        "productId": pid,
+        "title": title,
+        "qty": qty,
+        "amount": revenue,
+        "sell_price": sell_price,
+        "profit": profit,
+        "commission": commission,
+        "status": status,
+        "date": date_str,
+        "image_url": _extract_order_image(o),
     }
 
 
 def _finance_summary(orders_raw: list, products: list) -> dict:
-    """Считает выручку, ТОП-10 товаров, продажи по дням, конверсию."""
+    """Считает выручку, прибыль, ТОП-10 товаров, продажи по дням, конверсию."""
     orders = [_norm_order(o) for o in orders_raw]
-    # успешные заказы (не отменённые целиком)
-    cancelled_set = {"CANCELLED", "CANCELED", "REJECTED", "RETURNED"}
-    valid = [o for o in orders if o["status"].upper() not in cancelled_set]
-    # PARTIALLY_CANCELLED оставляем — там часть продана
+    # валидные = не отменённые (у них qty > 0)
+    valid = [o for o in orders if o["qty"] > 0 and o["status"].upper() != "CANCELED"]
+    cancelled = [o for o in orders if o["status"].upper() == "CANCELED" or o["qty"] == 0]
 
     total_revenue = sum(o["amount"] for o in valid)
+    total_profit = sum(o["profit"] for o in valid)
     total_qty = sum(o["qty"] for o in valid)
     avg_check = (total_revenue / len(valid)) if valid else 0
 
-    # ТОП по выручке
+    # ТОП по выручке (агрегируем по productId, копим image_url из заказа если есть)
     by_product = {}
     for o in valid:
         pid = o["productId"]
         if not pid:
             continue
-        slot = by_product.setdefault(pid, {"pid": pid, "title": o["title"], "qty": 0, "amount": 0.0})
+        slot = by_product.setdefault(pid, {
+            "pid": pid, "title": o["title"], "qty": 0, "amount": 0.0,
+            "profit": 0.0, "image_url": o.get("image_url") or "",
+        })
         slot["qty"] += o["qty"]
         slot["amount"] += o["amount"]
+        slot["profit"] += o["profit"]
+        if not slot["image_url"] and o.get("image_url"):
+            slot["image_url"] = o["image_url"]
 
-    # связываем с фото и нормализованным названием
+    # подтягиваем фото и название из таблицы товаров если в заказе пусто
     by_pid_product = {str(p.get("productId") or p.get("id") or ""): p for p in products}
     for slot in by_product.values():
         prod = by_pid_product.get(slot["pid"])
         if prod:
-            slot["image_url"] = prod.get("image_url") or ""
-            if prod.get("title_norm") and not slot["title"]:
+            if not slot["image_url"]:
+                slot["image_url"] = prod.get("image_url") or ""
+            if not slot["title"] and prod.get("title_norm"):
                 slot["title"] = prod["title_norm"]
-        else:
-            slot["image_url"] = ""
         if not slot["title"]:
             slot["title"] = "Товар " + slot["pid"]
 
@@ -365,14 +377,15 @@ def _finance_summary(orders_raw: list, products: list) -> dict:
         slot = by_day.setdefault(d, {"qty": 0, "amount": 0.0})
         slot["qty"] += o["qty"]
         slot["amount"] += o["amount"]
-    days_sorted = sorted(by_day.items())  # [(date, {qty, amount}), ...]
+    days_sorted = sorted(by_day.items())
 
-    # конверсия
+    # конверсия = заказы / просмотры
     total_views = sum(p.get("views_norm") or 0 for p in products)
     conversion = (total_qty / total_views * 100) if total_views else 0
 
     return {
         "total_revenue": int(total_revenue),
+        "total_profit": int(total_profit),
         "total_qty": total_qty,
         "orders_count": len(valid),
         "avg_check": int(avg_check),
@@ -380,7 +393,7 @@ def _finance_summary(orders_raw: list, products: list) -> dict:
         "top": top,
         "days": days_sorted,
         "raw_count": len(orders),
-        "cancelled_count": len(orders) - len(valid),
+        "cancelled_count": len(cancelled),
     }
 
 
