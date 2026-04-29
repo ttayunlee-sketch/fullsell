@@ -48,6 +48,45 @@ def invalidate_cache(shop_id: int = None):
                 _CACHE.pop(k, None)
 
 
+def debug_ad_campaigns(api_key: str, seller_id: int, days: int = 30) -> dict:
+    """Пробует получить рекламные кампании через cabinet-API с разными форматами auth."""
+    from datetime import datetime, timedelta
+    to_d = datetime.now().date()
+    from_d = to_d - timedelta(days=days)
+    base_url = "https://api-seller.uzum.uz/api/seller/advertising/management/ad-campaign"
+    params = {
+        "sellerId": seller_id,
+        "page": 0, "size": 20,
+        "from": from_d.isoformat(), "to": to_d.isoformat(),
+        "statusGroup": "ALL",
+    }
+    base_headers = {
+        "Accept": "application/json",
+        "Accept-Language": "ru",
+        "Origin": "https://seller.uzum.uz",
+        "Referer": "https://seller.uzum.uz/",
+    }
+    out = {"requests": []}
+    auth_variants = [
+        ("public-no-bearer", {"Authorization": api_key}),
+        ("public-bearer", {"Authorization": f"Bearer {api_key}"}),
+    ]
+    for name, auth in auth_variants:
+        attempt = {"variant": name}
+        try:
+            r = requests.get(base_url, headers={**base_headers, **auth}, params=params, timeout=15)
+            attempt["status"] = r.status_code
+            attempt["url"] = r.url
+            try:
+                attempt["body"] = r.json()
+            except Exception:
+                attempt["body_text"] = r.text[:600]
+        except Exception as e:
+            attempt["error"] = str(e)
+        out["requests"].append(attempt)
+    return out
+
+
 def debug_finance_orders(api_key: str, shop_id: int, days: int = 30) -> dict:
     """Возвращает сырой ответ UZUM без кеша — для отладки."""
     now_ms = int(time.time() * 1000)

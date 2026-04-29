@@ -11,7 +11,7 @@ from database import (
     init_db, get_clients, get_client, add_client, delete_client,
     get_alerts, add_alert, save_snapshots_batch, last_snapshot_age_minutes,
 )
-from uzum import get_products, test_connection, get_finance_orders, get_finance_expenses, debug_finance_orders
+from uzum import get_products, test_connection, get_finance_orders, get_finance_expenses, debug_finance_orders, debug_ad_campaigns
 from ai import ask as ai_ask, audit_product, promotion_strategy
 
 _AUDIT_CACHE = {}  # (shop_id, product_id) -> (timestamp, text)
@@ -508,6 +508,16 @@ async def finance_debug(cid: int, session: str = Cookie(default=None)):
     if not client:
         return JSONResponse({"error": "Not found"}, status_code=404)
     return JSONResponse(debug_finance_orders(client["api_key"], client["shop_id"]))
+
+
+@app.get("/shop/{cid}/promo/debug")
+async def promo_debug(cid: int, seller_id: int, session: str = Cookie(default=None)):
+    if not _auth(session):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    client = get_client(cid)
+    if not client:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+    return JSONResponse(debug_ad_campaigns(client["api_key"], seller_id))
 
 
 @app.post("/shop/{cid}/product/{pid}/audit")
