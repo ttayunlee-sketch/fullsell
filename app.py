@@ -12,7 +12,7 @@ from database import (
     get_alerts, add_alert, save_snapshots_batch, last_snapshot_age_minutes,
 )
 from uzum import get_products, test_connection, get_finance_orders, get_finance_expenses, debug_finance_orders
-from ai import ask as ai_ask, audit_product
+from ai import ask as ai_ask, audit_product, promotion_strategy
 
 _AUDIT_CACHE = {}  # (shop_id, product_id) -> (timestamp, text)
 _AUDIT_TTL = 3600  # 1 час
@@ -264,6 +264,7 @@ async def shop_page(cid: int, request: Request, session: str = Cookie(default=No
 
     orders_raw = get_finance_orders(client["api_key"], client["shop_id"], days=30)
     finance = _finance_summary(orders_raw, products)
+    promo = _promotion_segments(products, finance.get("by_pid") or {})
 
     return templates.TemplateResponse(request, "shop.html", {
         "client":   client,
@@ -271,6 +272,7 @@ async def shop_page(cid: int, request: Request, session: str = Cookie(default=No
         "alerts":   get_alerts(client["shop_id"]),
         "stats":    stats,
         "finance":  finance,
+        "promo":    promo,
     })
 
 
@@ -394,6 +396,74 @@ def _finance_summary(orders_raw: list, products: list) -> dict:
         "days": days_sorted,
         "raw_count": len(orders),
         "cancelled_count": len(cancelled),
+        "by_pid": by_product,  # для аналитики продвижения
+    }
+
+
+def _promotion_segments(products: list, by_pid: dict) -> dict:
+    """Сегментация товаров для продвижения по матрице «продажи × конверсия»."""
+    rows = []
+    for p in products:
+        pid = str(p.get("productId") or p.get("id") or "")
+        if not pid or p.get("status_norm") not in ("IN_STOCK", "ACTIVE"):
+            continue
+        sale = by_pid.get(pid, {})
+        views = p.get("views_norm") or 0
+        qty = sale.get("qty", 0)
+        revenue = sale.get("amount", 0.0)
+        profit = sale.get("profit", 0.0)
+        rating = p.get("rating_norm") or 0
+        fbs = p.get("fbs_norm") or 0
+        # Конверсия = заказы / просмотры (в %)
+        conv = (qty / views * 100) if views > 0 else 0
+        rows.append({
+            "pid": pid,
+            "title": p.get("title_norm") or "—",
+            "image_url": p.get("image_url") or sale.get("image_url") or "",
+            "views": views,
+            "qty": qty,
+            "revenue": revenue,
+            "profit": profit,
+            "rating": rating,
+            "fbs": fbs,
+            "conv": round(conv, 2),
+        })
+
+    if not rows:
+        return {"stars": [], "pearls": [], "stagnant": [], "ballast": [], "all": []}
+
+    # Распределяем по сегментам
+    stars, pearls, stagnant, ballast, cows = [], [], [], [], []
+    for r in rows:
+        v, q, rev, c = r["views"], r["qty"], r["revenue"], r["conv"]
+        if rev > 0 and c >= 1.0 and v >= 200:
+            # Хорошие продажи + конверсия + видимость = ⭐ Звёзды
+            stars.append(r)
+        elif c >= 1.5 and v < 500 and r["fbs"] > 0:
+            # Высокая конверсия, но мало показов = 💎 Жемчужины (ПРОДВИГАТЬ!)
+            pearls.append(r)
+        elif v >= 300 and (q == 0 or c < 0.3):
+            # Много показов, нет/почти нет продаж = 😴 Стагнация (улучшить карточку)
+            stagnant.append(r)
+        elif rev > 0 and v >= 500:
+            # Стабильные продажи = 💰 Дойные коровы
+            cows.append(r)
+        else:
+            ballast.append(r)
+
+    stars.sort(key=lambda x: -x["revenue"])
+    pearls.sort(key=lambda x: -x["conv"])
+    stagnant.sort(key=lambda x: -x["views"])
+    cows.sort(key=lambda x: -x["revenue"])
+    ballast.sort(key=lambda x: -x["views"])
+
+    return {
+        "stars": stars[:8],
+        "pearls": pearls[:8],
+        "stagnant": stagnant[:8],
+        "cows": cows[:6],
+        "ballast": ballast[:5],
+        "all": sorted(rows, key=lambda x: -x["views"]),
     }
 
 
@@ -402,6 +472,33 @@ def _finance_summary(orders_raw: list, products: list) -> dict:
 
 class AskBody(BaseModel):
     message: str
+
+_PROMO_AI_CACHE = {}  # shop_id -> (ts, text)
+
+
+@app.post("/shop/{cid}/promo/strategy")
+async def promo_strategy(cid: int, session: str = Cookie(default=None)):
+    import time as _t
+    if not _auth(session):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    client = get_client(cid)
+    if not client:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+
+    cached = _PROMO_AI_CACHE.get(client["shop_id"])
+    if cached and _t.time() - cached[0] < 1800:  # 30 мин
+        return JSONResponse({"strategy": cached[1], "cached": True})
+
+    products = get_products(client["api_key"], client["shop_id"])
+    for p in products:
+        _normalize(p)
+    orders_raw = get_finance_orders(client["api_key"], client["shop_id"], days=30)
+    finance = _finance_summary(orders_raw, products)
+    segments = _promotion_segments(products, finance.get("by_pid") or {})
+    text = promotion_strategy(dict(client), products, finance, segments)
+    _PROMO_AI_CACHE[client["shop_id"]] = (_t.time(), text)
+    return JSONResponse({"strategy": text, "cached": False})
+
 
 @app.get("/shop/{cid}/finance/debug")
 async def finance_debug(cid: int, session: str = Cookie(default=None)):

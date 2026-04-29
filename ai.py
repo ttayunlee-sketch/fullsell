@@ -82,6 +82,78 @@ _AUDIT_SYSTEM = (
 )
 
 
+_PROMO_SYSTEM = (
+    "Ты — стратег продвижения на маркетплейсе UZUM (Узбекистан). "
+    "Тебе дают: реальные продажи, конверсию, сегменты товаров. "
+    "Ты пишешь конкретный план продвижения. На русском, без markdown (* # ** > и т.д.). "
+    "Структура ответа строго такая:\n\n"
+    "ПРОДВИГАТЬ РЕКЛАМОЙ (вкладывать бюджет):\n"
+    "1. [Название товара] — почему: [конверсия N%, мало показов, есть остаток]. Бюджет: ~[сумма] на 7 дней. Эффект: ожидаем +N продаж.\n"
+    "2. ...\n\n"
+    "ИСПРАВИТЬ КАРТОЧКУ (низкая конверсия):\n"
+    "1. [Название товара] — проблема: [конверсия 0.2%, 1500 просмотров, 0 продаж]. Что сделать: [конкретные шаги — название, фото, описание, цена].\n"
+    "2. ...\n\n"
+    "СНИЗИТЬ ЦЕНУ ИЛИ СНЯТЬ:\n"
+    "1. [Название товара] — почему: [нет продаж 30+ дней, низкий рейтинг]. Действие: снизить на N% или архивировать.\n"
+    "2. ...\n\n"
+    "ОБЩАЯ ОЦЕНКА МАГАЗИНА: N/10 — одной строкой что главное.\n\n"
+    "Будь конкретен: цифры, названия товаров, проценты. Не общие фразы."
+)
+
+
+def promotion_strategy(client: dict, products: list, finance: dict, segments: dict) -> str:
+    """Генерирует план продвижения на основе реальных данных продаж и сегментации."""
+    if not ANTHROPIC_API_KEY:
+        return "Ошибка: ANTHROPIC_API_KEY не задан."
+
+    def fmt_seg(name: str, items: list) -> str:
+        if not items:
+            return f"{name}: (пусто)"
+        lines = [f"{name}:"]
+        for r in items[:6]:
+            lines.append(
+                f"  • {r['title'][:60]} | просмотры {r['views']:,} | продано {r['qty']} шт | "
+                f"выручка {int(r['revenue']):,} сум | конверсия {r['conv']}% | "
+                f"рейтинг {r['rating']} | остаток {r['fbs']}"
+            )
+        return "\n".join(lines)
+
+    parts = [
+        f"Магазин: {client.get('name','—')} (Shop ID: {client.get('shop_id','—')})",
+        f"Период: 30 дней",
+        f"Выручка: {finance.get('total_revenue', 0):,} сум",
+        f"Прибыль: {finance.get('total_profit', 0):,} сум",
+        f"Заказов: {finance.get('orders_count', 0)} (отменено {finance.get('cancelled_count', 0)})",
+        f"Средний чек: {finance.get('avg_check', 0):,} сум",
+        f"Общая конверсия: {finance.get('conversion', 0)}%",
+        "",
+        fmt_seg("⭐ Звёзды (продажи + хорошая конверсия)", segments.get("stars") or []),
+        "",
+        fmt_seg("💎 Жемчужины (высокая конверсия, мало показов — кандидаты на продвижение)", segments.get("pearls") or []),
+        "",
+        fmt_seg("😴 Стагнация (много просмотров, нет/мало продаж — проблема в карточке)", segments.get("stagnant") or []),
+        "",
+        fmt_seg("💰 Дойные коровы (стабильные продажи)", segments.get("cows") or []),
+        "",
+        fmt_seg("💀 Балласт (низкие показы и продажи)", segments.get("ballast") or []),
+        "",
+        "На основе этих данных составь конкретный план продвижения по структуре, указанной в системном промпте."
+    ]
+    prompt = "\n".join(parts)
+
+    try:
+        ai = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        message = ai.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=2000,
+            system=_PROMO_SYSTEM,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return message.content[0].text
+    except Exception as e:
+        return f"Ошибка AI: {e}"
+
+
 def audit_product(product: dict, shop_name: str = "") -> str:
     if not ANTHROPIC_API_KEY:
         return "Ошибка: ANTHROPIC_API_KEY не задан."

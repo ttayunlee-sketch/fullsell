@@ -60,6 +60,7 @@
   <li><a href="#" class="tab-link" onclick="return tab(this,'finance')">💰 Продажи
     {% if finance.orders_count %}<span style="background:#4ade80;color:#06291a;border-radius:20px;padding:1px 7px;font-size:.7rem;margin-left:4px;font-weight:600;">{{ finance.orders_count }}</span>{% endif %}
   </a></li>
+  <li><a href="#" class="tab-link" onclick="return tab(this,'promo')">🎯 Продвижение</a></li>
   <li><a href="#" class="tab-link" onclick="return tab(this,'ai')">🤖 AI Советник</a></li>
 </ul>
 
@@ -302,6 +303,83 @@
   {% endif %}
 </div>
 
+<!-- ── ПРОДВИЖЕНИЕ ────────────────────────────────────────────────────────── -->
+<div id="tab-promo" style="display:none;padding-top:20px;">
+  {# helper macro для карточки сегмента #}
+  {% macro seg_card(items, title, sub, color, action_label) -%}
+    <div class="card-dark mb-3">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
+        <div>
+          <div style="color:#fff;font-weight:600;font-size:.95rem;">{{ title }}</div>
+          <div style="color:#cbd5e1;font-size:.78rem;margin-top:2px;">{{ sub }}</div>
+        </div>
+        <span style="background:{{ color }};color:#06291a;padding:3px 12px;border-radius:20px;font-size:.78rem;font-weight:600;">{{ items|length }} товаров</span>
+      </div>
+      {% if items %}
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        {% for r in items %}
+        <div onclick="auditProduct('{{ r.pid }}', '{{ r.title[:55]|replace("'", "\\'") }}', '{{ r.image_url }}')"
+             style="display:flex;align-items:center;gap:12px;padding:10px;background:var(--card2);border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:border-color .15s;"
+             onmouseover="this.style.borderColor='#a5b4fc'" onmouseout="this.style.borderColor='var(--border)'"
+             title="Клик — AI-аудит карточки">
+          {% if r.image_url %}
+            <img src="{{ r.image_url }}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0;" referrerpolicy="no-referrer" onerror="this.style.opacity='.3'">
+          {% else %}
+            <div style="width:44px;height:44px;border-radius:8px;background:var(--border2);display:flex;align-items:center;justify-content:center;flex-shrink:0;">📦</div>
+          {% endif %}
+          <div style="flex:1;min-width:0;">
+            <div style="color:#fff;font-size:.88rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ r.title[:55] }}</div>
+            <div style="color:#cbd5e1;font-size:.78rem;margin-top:3px;display:flex;gap:10px;flex-wrap:wrap;">
+              <span>👁 {{ "{:,}".format(r.views) }}</span>
+              <span>📦 {{ r.qty }} продано</span>
+              <span style="color:{{ '#86efac' if r.conv >= 1 else ('#fcd34d' if r.conv >= 0.3 else '#fca5a5') }};">🎯 {{ r.conv }}%</span>
+              <span>★ {{ r.rating }}</span>
+              <span>остаток {{ r.fbs }}</span>
+            </div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;">
+            <div style="color:#fff;font-weight:600;font-size:.88rem;white-space:nowrap;">{{ "{:,}".format(r.revenue|int) }}</div>
+            <div style="color:#cbd5e1;font-size:.72rem;">сум</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+        <div style="text-align:center;padding:14px;color:#cbd5e1;font-size:.85rem;">— пусто —</div>
+      {% endif %}
+    </div>
+  {%- endmacro %}
+
+  <!-- AI стратегия -->
+  <div class="card-dark mb-3" style="border:1px solid #353c5c;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+      <div style="width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,#a5b4fc,#c4b5fd);display:flex;align-items:center;justify-content:center;font-size:1.1rem;">🤖</div>
+      <div style="flex:1;">
+        <div style="color:#fff;font-weight:600;font-size:.95rem;">AI-стратегия продвижения</div>
+        <div style="color:#cbd5e1;font-size:.78rem;">На основе реальных продаж за 30 дней — что продвигать, что чинить, что снимать</div>
+      </div>
+      <button onclick="loadPromoStrategy()" id="promo-btn" class="btn btn-primary btn-sm">🚀 Сгенерировать план</button>
+    </div>
+    <div id="promo-output" style="color:#fff;white-space:pre-wrap;line-height:1.75;font-size:.88rem;max-height:520px;overflow-y:auto;"></div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-lg-6">
+      {{ seg_card(promo.pearls, "💎 Жемчужины — продвигать!", "Высокая конверсия, мало показов. Реклама даст быстрый прирост", "#a5b4fc", "+ В рекламу") }}
+      {{ seg_card(promo.stars, "⭐ Звёзды — поддерживать", "Лидеры продаж и конверсии. Не трогать карточки, держать остаток", "#fcd34d", "Поддержка") }}
+    </div>
+    <div class="col-lg-6">
+      {{ seg_card(promo.stagnant, "😴 Стагнация — переделать", "Много просмотров, мало продаж. Проблема в карточке/цене", "#f87171", "Аудит") }}
+      {{ seg_card(promo.cows, "💰 Дойные коровы", "Стабильные продажи. Проверить остатки и цены конкурентов", "#86efac", "Контроль") }}
+    </div>
+    {% if promo.ballast %}
+    <div class="col-12">
+      {{ seg_card(promo.ballast, "💀 Балласт — пересмотреть", "Низкие показы и продажи. Возможно архивировать или сильно снизить цену", "#94a3b8", "Снять") }}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
 <!-- ── AI СОВЕТНИК ──────────────────────────────────────────────────────────── -->
 <div id="tab-ai" style="display:none;padding-top:20px;">
   <div class="card-dark mb-3">
@@ -369,12 +447,27 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAudit()
 
 function tab(el, name) {
   document.querySelectorAll('.tab-link').forEach(t => t.classList.remove('active'));
-  ['products','analytics','alerts','finance','ai'].forEach(t => {
+  ['products','analytics','alerts','finance','promo','ai'].forEach(t => {
     const el2 = document.getElementById('tab-' + t);
     if (el2) el2.style.display = t === name ? 'block' : 'none';
   });
   el.classList.add('active');
   return false;
+}
+
+async function loadPromoStrategy() {
+  const btn = document.getElementById('promo-btn');
+  const out = document.getElementById('promo-output');
+  btn.disabled = true;
+  btn.textContent = '🔍 Анализирую...';
+  out.textContent = 'AI смотрит на продажи, конверсию по каждому товару, сегменты — это ~10 секунд...';
+  try {
+    const r = await fetch('/shop/{{ client.id }}/promo/strategy', {method:'POST'});
+    const d = await r.json();
+    out.textContent = d.strategy || d.error || 'Пустой ответ';
+  } catch(e) { out.textContent = 'Ошибка: ' + e; }
+  btn.disabled = false;
+  btn.textContent = '🔄 Перегенерировать';
 }
 
 async function autoAnalyze() {
