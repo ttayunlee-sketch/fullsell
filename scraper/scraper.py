@@ -10,6 +10,7 @@ from datetime import date
 from typing import List, Dict, Any, Optional
 
 from playwright.async_api import async_playwright, Page, BrowserContext, Response
+from captcha import solve_yandex_captcha
 
 USER_AGENT = (
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
@@ -69,17 +70,25 @@ async def _is_captcha(page: Page) -> bool:
 
 
 async def _warmup(page: Page):
-    """Заходит на главную, ждёт загрузки. Если попали на капчу — логируем и возвращаем False."""
-    print(f"[scraper] warmup: {page.url}", flush=True)
+    """Заходит на главную, при необходимости решает капчу через 2captcha."""
+    print(f"[scraper] warmup: navigating to uzum.uz", flush=True)
     try:
         await page.goto("https://uzum.uz/ru", timeout=PAGE_TIMEOUT, wait_until="domcontentloaded")
     except Exception as e:
         print(f"[scraper] warmup goto error: {e}", flush=True)
         return False
     await page.wait_for_timeout(3000)
+
+    # Если попали на капчу — решаем через 2captcha
     if await _is_captcha(page):
-        print(f"[scraper] CAPTCHA on warmup: {page.url}", flush=True)
-        return False
+        print(f"[scraper] CAPTCHA on warmup → trying 2captcha", flush=True)
+        ok = await solve_yandex_captcha(page)
+        if not ok:
+            print(f"[scraper] CAPTCHA solve FAILED — aborting", flush=True)
+            return False
+        # после решения капчи ждём догрузки страницы
+        await page.wait_for_timeout(2000)
+
     print(f"[scraper] warmup OK: {page.url}", flush=True)
     return True
 
@@ -225,9 +234,17 @@ async def scrape_category(page: Page, slug: str, category_id: int) -> List[Dict[
         return []
 
     if await _is_captcha(page):
-        print(f"[scraper] CAPTCHA on category {slug}", flush=True)
-        page.remove_listener("response", on_response)
-        return []
+        print(f"[scraper] CAPTCHA on category {slug} → 2captcha", flush=True)
+        ok = await solve_yandex_captcha(page)
+        if not ok:
+            print(f"[scraper] could not solve captcha on {slug}", flush=True)
+            page.remove_listener("response", on_response)
+            return []
+        # После решения переходим заново чтобы триггернуть GraphQL заново
+        try:
+            await page.goto(url, timeout=PAGE_TIMEOUT, wait_until="domcontentloaded")
+        except Exception:
+            pass
 
     # Скроллим, чтобы фронт догрузил товары
     for i in range(SCROLL_ROUNDS):

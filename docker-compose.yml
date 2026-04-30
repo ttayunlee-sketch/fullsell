@@ -22,6 +22,7 @@ services:
     profiles: ["scrape"]   # не стартует автоматически; запускается через `docker compose run --rm scraper`
     environment:
       DATABASE_URL: postgresql://fullsell:${POSTGRES_PASSWORD}@db:5432/fullsell
+      TWOCAPTCHA_API_KEY: ${TWOCAPTCHA_API_KEY:-}
       SCRAPER_TOP_CATS: "50"
       SCRAPER_PRODUCTS_PER_CAT: "200"
       SCRAPER_SCROLLS: "8"
