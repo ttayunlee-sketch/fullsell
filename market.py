@@ -232,13 +232,21 @@ def save_meta(period: str = "30 дней"):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def load_market_data(top_sellers: int = 50, top_niches: int = 50, top_cats: int = 12) -> Dict[str, Any]:
-    """Возвращает всё что нужно market.html: KPI + топы + категории."""
+    """Возвращает всё что нужно market.html: KPI + топы + категории.
+    Сначала пытается взять авто-данные из БД (скрейпер uzum.uz),
+    при их отсутствии — fallback на CSV-импорт ZoomSelling."""
+    auto = load_market_data_auto(top_sellers=top_sellers, top_niches=top_niches, top_cats=top_cats)
+    if auto and auto.get("has_data"):
+        return auto
+
+    # ── Fallback: ZoomSelling CSV ──
     sellers = parse_sellers()
     niches  = parse_niches()
     cats    = parse_categories()
 
     return {
         "has_data":   has_data(),
+        "source":     "csv",
         "meta":       get_meta(),
         "kpi":        overview(sellers, niches),
         "top_sellers": sellers[:top_sellers],
@@ -248,4 +256,203 @@ def load_market_data(top_sellers: int = 50, top_niches: int = 50, top_cats: int 
         "top_categories": aggregate_categories_top(cats, top=top_cats),
         "growers":    sorted([s for s in sellers if s["growth"] > 0], key=lambda x: x["growth"], reverse=True)[:10],
         "fallers":    sorted([s for s in sellers if s["growth"] < 0], key=lambda x: x["growth"])[:10],
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Auto-data (наш скрейпер uzum.uz) — читает из Postgres
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _pg_conn():
+    url = os.environ.get("DATABASE_URL")
+    if not url:
+        return None
+    try:
+        import psycopg2
+        return psycopg2.connect(url.replace("postgres://", "postgresql://", 1))
+    except Exception:
+        return None
+
+
+def load_market_data_auto(top_sellers: int = 50, top_niches: int = 50, top_cats: int = 12) -> Dict[str, Any]:
+    """Читает данные скрейпера из БД. Возвращает None если данных нет."""
+    conn = _pg_conn()
+    if not conn:
+        return None
+    try:
+        with conn.cursor() as c:
+            # Последний снапшот
+            c.execute("SELECT MAX(snap_date) FROM market_sellers_daily")
+            row = c.fetchone()
+            latest = row[0] if row and row[0] else None
+            if not latest:
+                return None
+
+            # Снапшот для расчёта роста — приоритет 7 дней назад, иначе самый старый
+            c.execute(
+                "SELECT snap_date FROM market_sellers_daily WHERE snap_date <= %s - INTERVAL '7 days' "
+                "ORDER BY snap_date DESC LIMIT 1",
+                (latest,),
+            )
+            prev_row = c.fetchone()
+            if not prev_row:
+                c.execute(
+                    "SELECT snap_date FROM market_sellers_daily WHERE snap_date < %s "
+                    "ORDER BY snap_date ASC LIMIT 1",
+                    (latest,),
+                )
+                prev_row = c.fetchone()
+            previous = prev_row[0] if prev_row else None
+
+            # Загружаем продавцов с ростом
+            c.execute(
+                """
+                SELECT s.seller_id, s.seller_title, s.products_count, s.revenue_estimate,
+                       s.orders_estimate,
+                       prev.revenue_estimate AS prev_rev
+                FROM market_sellers_daily s
+                LEFT JOIN market_sellers_daily prev
+                  ON prev.seller_id = s.seller_id AND prev.snap_date = %s
+                WHERE s.snap_date = %s
+                ORDER BY s.revenue_estimate DESC
+                LIMIT %s
+                """,
+                (previous, latest, max(top_sellers, 200)),
+            )
+            seller_rows = c.fetchall()
+
+            # Все селлеры — для подсчёта total
+            c.execute(
+                "SELECT COUNT(*), COALESCE(SUM(revenue_estimate),0) FROM market_sellers_daily WHERE snap_date=%s",
+                (latest,),
+            )
+            total_sellers, total_rev = c.fetchone()
+
+            # Категории
+            c.execute(
+                """
+                SELECT title_ru, revenue_estimate, products_count, level
+                FROM market_categories_daily
+                WHERE snap_date=%s AND level=1 AND revenue_estimate > 0
+                ORDER BY revenue_estimate DESC
+                LIMIT %s
+                """,
+                (latest, top_cats),
+            )
+            cat_rows = c.fetchall()
+
+            # Ниши = leaf categories (level >= 3)
+            c.execute(
+                """
+                SELECT title_ru, revenue_estimate, products_count, level
+                FROM market_categories_daily
+                WHERE snap_date=%s AND revenue_estimate > 0
+                ORDER BY revenue_estimate DESC
+                LIMIT %s
+                """,
+                (latest, top_niches),
+            )
+            niche_rows = c.fetchall()
+            c.execute(
+                "SELECT COUNT(*) FROM market_categories_daily WHERE snap_date=%s AND revenue_estimate > 0",
+                (latest,),
+            )
+            total_niches = c.fetchone()[0]
+    except Exception as e:
+        print(f"[market.auto] DB error: {e}", flush=True)
+        try: conn.close()
+        except: pass
+        return None
+    finally:
+        try: conn.close()
+        except: pass
+
+    # ── normalize ──
+    def _growth(now_v: int, prev_v: Optional[int]) -> float:
+        if not prev_v or prev_v == 0:
+            return 0.0
+        return (float(now_v) - float(prev_v)) / float(prev_v)
+
+    sellers: List[Dict[str, Any]] = []
+    for sid, title, cnt, rev, orders, prev_rev in seller_rows:
+        rev = int(rev or 0)
+        share = (rev / total_rev) if total_rev else 0.0
+        sellers.append({
+            "name":          title or f"shop {sid}",
+            "legal":         "",
+            "revenue":       rev,
+            "revenue_str":   _format_money(rev),
+            "growth":        _growth(rev, prev_rev),
+            "share":         share,
+            "sold":          int(orders or 0),
+            "sold_per_day":  (int(orders or 0) / 30) if orders else 0,
+            "turnover_days": 0,
+            "orders_period": int(orders or 0),
+            "orders_total":  int(orders or 0),
+        })
+
+    niches: List[Dict[str, Any]] = []
+    for title, rev, cnt, level in niche_rows:
+        rev = int(rev or 0)
+        niches.append({
+            "category":             title or "—",
+            "revenue":              rev,
+            "revenue_str":          _format_money(rev),
+            "growth":               0.0,           # рост по нишам считается на этапе 2
+            "sold":                 0,
+            "price_median":         0,
+            "shops":                int(cnt or 0),
+            "shops_with_sales_pct": 0.0,
+            "cards":                int(cnt or 0),
+            "cards_with_sales_pct": 0.0,
+            "rev_per_shop":         (rev // cnt) if cnt else 0,
+            "rev_per_shop_str":     _format_money((rev // cnt) if cnt else 0),
+            "turnover_days":        0,
+        })
+
+    cats_total = sum(int(r[1] or 0) for r in cat_rows) or 1
+    top_categories = []
+    for title, rev, cnt, level in cat_rows:
+        rev = int(rev or 0)
+        top_categories.append({
+            "name":         title or "—",
+            "revenue":      rev,
+            "revenue_str":  _format_money(rev),
+            "share":        rev / cats_total,
+        })
+
+    # KPI
+    weighted_growth = 0.0
+    if total_rev:
+        weighted_growth = sum(s["revenue"] * s["growth"] for s in sellers) / total_rev
+    growers = sorted([s for s in sellers if s["growth"] > 0], key=lambda x: x["growth"], reverse=True)[:10]
+    fallers = sorted([s for s in sellers if s["growth"] < 0], key=lambda x: x["growth"])[:10]
+
+    return {
+        "has_data":   True,
+        "source":     "auto",
+        "meta": {
+            "uploaded_at": latest.strftime("%Y-%m-%d") if latest else None,
+            "period":      "auto-сбор" + (f" · сравнение с {previous}" if previous else " · 1 снапшот, рост недоступен"),
+            "snap_date":   str(latest),
+            "previous":    str(previous) if previous else None,
+        },
+        "kpi": {
+            "total_revenue":     int(total_rev or 0),
+            "total_revenue_str": _format_money(int(total_rev or 0)),
+            "sellers_count":     int(total_sellers or 0),
+            "sellers_growing":   sum(1 for s in sellers if s["growth"] > 0),
+            "sellers_falling":   sum(1 for s in sellers if s["growth"] < 0),
+            "niches_count":      int(total_niches or 0),
+            "avg_check":         0,
+            "avg_check_str":     "—",
+            "weighted_growth":   weighted_growth,
+        },
+        "top_sellers":         sellers[:top_sellers],
+        "all_sellers_count":   int(total_sellers or 0),
+        "top_niches":          niches,
+        "all_niches_count":    int(total_niches or 0),
+        "top_categories":      top_categories,
+        "growers":             growers,
+        "fallers":             fallers,
     }

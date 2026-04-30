@@ -291,6 +291,21 @@ async def market_clear(session: str = Cookie(default=None)):
     return RedirectResponse("/market", status_code=303)
 
 
+@app.post("/market/refresh")
+async def market_refresh(session: str = Cookie(default=None)):
+    """Кладёт флаг-файл в shared volume scraper_state. Хостовый cron каждую минуту
+    проверяет флаг и запускает скрейпер. Возвращается сразу — скрейпер 5-15 мин."""
+    if not _auth(session):
+        return RedirectResponse("/login")
+    try:
+        flag_dir = Path("/state")
+        if flag_dir.exists():
+            (flag_dir / "refresh.flag").write_text("requested\n")
+    except Exception as e:
+        print(f"[market.refresh] failed to set flag: {e}", flush=True)
+    return RedirectResponse("/market?refreshing=1", status_code=303)
+
+
 # ── Shop dashboard ────────────────────────────────────────────────────────────
 
 @app.get("/shop/{cid}", response_class=HTMLResponse)

@@ -8,19 +8,36 @@
     <div class="page-title page-title-grad">Рынок UZUM</div>
     <div class="page-sub">
       {% if has_data %}
-        Период: {{ meta.period or '30 дней' }} · Загружено: {{ meta.uploaded_at }} · {{ all_sellers_count }} селлеров · {{ all_niches_count }} ниш
+        {% if source == 'auto' %}
+          <span style="display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border-radius:6px;background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.3);color:#4ade80;font-size:.72rem;font-weight:600;">
+            <span style="width:6px;height:6px;border-radius:50%;background:#4ade80;box-shadow:0 0 6px #4ade80;"></span>
+            АВТО-СБОР
+          </span>
+          Снимок {{ meta.snap_date }} · {{ meta.period }} · {{ all_sellers_count }} селлеров · {{ all_niches_count }} ниш
+        {% else %}
+          <span style="display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border-radius:6px;background:rgba(192,132,252,.12);border:1px solid rgba(192,132,252,.3);color:#c084fc;font-size:.72rem;font-weight:600;">CSV ИМПОРТ</span>
+          {{ meta.period or '30 дней' }} · Загружено: {{ meta.uploaded_at }} · {{ all_sellers_count }} селлеров · {{ all_niches_count }} ниш
+        {% endif %}
       {% else %}
-        Полная аналитика всего маркета. Импорт из ZoomSelling CSV.
+        Полная аналитика всего маркета. Авто-сбор каждый день в 04:00 UTC. Пока данных нет — можно загрузить CSV.
       {% endif %}
     </div>
   </div>
   <div style="display:flex;gap:10px;">
+    {% if has_data and source == 'auto' %}
+    <form method="post" action="/market/refresh" style="margin:0;">
+      <button type="submit" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:8px;">
+        <i data-lucide="refresh-cw" style="width:16px;height:16px;"></i>
+        Обновить сейчас
+      </button>
+    </form>
+    {% endif %}
     <button class="btn btn-ghost" onclick="document.getElementById('uploadModal').style.display='flex';" style="display:inline-flex;align-items:center;gap:8px;">
       <i data-lucide="upload-cloud" style="width:16px;height:16px;"></i>
-      {% if has_data %}Обновить данные{% else %}Загрузить CSV{% endif %}
+      {% if source == 'csv' %}Обновить CSV{% else %}Загрузить CSV{% endif %}
     </button>
-    {% if has_data %}
-    <form method="post" action="/market/clear" style="margin:0;" onsubmit="return confirm('Удалить все данные рынка?');">
+    {% if has_data and source == 'csv' %}
+    <form method="post" action="/market/clear" style="margin:0;" onsubmit="return confirm('Удалить все CSV-данные?');">
       <button type="submit" class="btn btn-ghost" style="display:inline-flex;align-items:center;gap:8px;color:#fb7185;">
         <i data-lucide="trash-2" style="width:16px;height:16px;"></i>
         Очистить
