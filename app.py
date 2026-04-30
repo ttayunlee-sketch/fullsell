@@ -5,6 +5,7 @@ from fastapi import FastAPI, Request, Form, Cookie
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from jinja2 import Environment, FileSystemLoader
 from database import (
@@ -26,6 +27,14 @@ BASE_DIR = Path(__file__).parent
 
 app = FastAPI()
 app.add_middleware(GZipMiddleware, minimum_size=500)
+# CORS для Chrome-расширения (FullSell Connector)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origin_regex=r"chrome-extension://.*",
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+    allow_credentials=False,
+)
 
 
 @app.exception_handler(Exception)
