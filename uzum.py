@@ -71,14 +71,15 @@ def get_ad_campaigns(cabinet_token: str, seller_id: int, days: int = 30) -> dict
     items = []
     page = 0
     error = None
-    while page < 20:
+    page_size = 20  # UZUM cabinet API возвращает 400 при size > 20
+    while page < 50:
         try:
             r = requests.get(
                 f"{CABINET_BASE}/api/seller/advertising/management/ad-campaign",
                 headers=_cabinet_headers(cabinet_token),
                 params={
-                    "sellerId": seller_id,
-                    "page": page, "size": 50,
+                    "sellerId": int(seller_id),
+                    "page": page, "size": page_size,
                     "from": from_d.isoformat(), "to": to_d.isoformat(),
                     "statusGroup": "ALL",
                 },
@@ -110,7 +111,7 @@ def get_ad_campaigns(cabinet_token: str, seller_id: int, days: int = 30) -> dict
                 total = payload.get("totalElements") or payload.get("total") or 0
             elif isinstance(data, dict):
                 total = data.get("totalElements") or 0
-            if len(content) < 50 or (total and len(items) >= total):
+            if len(content) < page_size or (total and len(items) >= total):
                 break
             page += 1
         except Exception as e:
