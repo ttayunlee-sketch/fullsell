@@ -1,0 +1,348 @@
+{% extends "base.html" %}
+{% set active_page = "market" %}
+{% block title %}Рынок UZUM — FullSell{% endblock %}
+{% block content %}
+
+<div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+  <div>
+    <div class="page-title page-title-grad">Рынок UZUM</div>
+    <div class="page-sub">
+      {% if has_data %}
+        Период: {{ meta.period or '30 дней' }} · Загружено: {{ meta.uploaded_at }} · {{ all_sellers_count }} селлеров · {{ all_niches_count }} ниш
+      {% else %}
+        Полная аналитика всего маркета. Импорт из ZoomSelling CSV.
+      {% endif %}
+    </div>
+  </div>
+  <div style="display:flex;gap:10px;">
+    <button class="btn btn-ghost" onclick="document.getElementById('uploadModal').style.display='flex';" style="display:inline-flex;align-items:center;gap:8px;">
+      <i data-lucide="upload-cloud" style="width:16px;height:16px;"></i>
+      {% if has_data %}Обновить данные{% else %}Загрузить CSV{% endif %}
+    </button>
+    {% if has_data %}
+    <form method="post" action="/market/clear" style="margin:0;" onsubmit="return confirm('Удалить все данные рынка?');">
+      <button type="submit" class="btn btn-ghost" style="display:inline-flex;align-items:center;gap:8px;color:#fb7185;">
+        <i data-lucide="trash-2" style="width:16px;height:16px;"></i>
+        Очистить
+      </button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+{% if not has_data %}
+<!-- ───────── Empty state ───────── -->
+<div class="card-dark" style="text-align:center;padding:60px 24px;">
+  <div style="width:88px;height:88px;border-radius:22px;margin:0 auto 22px;background:linear-gradient(135deg,#818cf8,#a78bfa,#c084fc);display:flex;align-items:center;justify-content:center;box-shadow:0 16px 48px rgba(129,140,248,.4);">
+    <i data-lucide="bar-chart-3" style="width:44px;height:44px;color:#fff;"></i>
+  </div>
+  <div style="font-weight:700;color:#fff;font-size:1.4rem;margin-bottom:10px;letter-spacing:-.02em;">Импорт данных рынка</div>
+  <div style="color:var(--muted);font-size:.95rem;max-width:540px;margin:0 auto 28px;line-height:1.6;">
+    Экспортируй три CSV из ZoomSelling: <b style="color:#fff;">Рейтинг магазинов</b>, <b style="color:#fff;">Ниши</b>, <b style="color:#fff;">Категории — Карта эффективности</b>. FullSell построит дашборд всего UZUM рынка с топ-селлерами, нишами и категориями.
+  </div>
+  <button class="btn btn-primary" onclick="document.getElementById('uploadModal').style.display='flex';" style="display:inline-flex;align-items:center;gap:8px;">
+    <i data-lucide="upload-cloud" style="width:16px;height:16px;"></i>
+    Загрузить 3 CSV
+  </button>
+</div>
+
+{% else %}
+
+<!-- ───────── KPI cards ───────── -->
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:22px;">
+
+  <div class="card-dark stat-themed stat-violet tilt" style="padding:18px;">
+    <div style="display:flex;align-items:center;gap:10px;color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;font-weight:600;">
+      <i data-lucide="banknote" style="width:14px;height:14px;"></i>Выручка рынка
+    </div>
+    <div style="font-size:2rem;font-weight:800;color:#fff;margin-top:6px;letter-spacing:-.03em;">{{ kpi.total_revenue_str }}</div>
+    <div style="display:flex;align-items:center;gap:6px;margin-top:4px;color:{% if kpi.weighted_growth>=0 %}#4ade80{% else %}#fb7185{% endif %};font-size:.85rem;font-weight:600;">
+      <i data-lucide="{% if kpi.weighted_growth>=0 %}trending-up{% else %}trending-down{% endif %}" style="width:14px;height:14px;"></i>
+      {{ "%+.1f"|format(kpi.weighted_growth*100) }}% к прошлому периоду
+    </div>
+  </div>
+
+  <div class="card-dark stat-themed stat-cyan tilt" style="padding:18px;">
+    <div style="display:flex;align-items:center;gap:10px;color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;font-weight:600;">
+      <i data-lucide="store" style="width:14px;height:14px;"></i>Селлеров
+    </div>
+    <div style="font-size:2rem;font-weight:800;color:#fff;margin-top:6px;letter-spacing:-.03em;" data-count="{{ kpi.sellers_count }}">{{ kpi.sellers_count }}</div>
+    <div style="display:flex;gap:10px;margin-top:4px;font-size:.78rem;font-weight:600;">
+      <span style="color:#4ade80;">↑ {{ kpi.sellers_growing }}</span>
+      <span style="color:#fb7185;">↓ {{ kpi.sellers_falling }}</span>
+    </div>
+  </div>
+
+  <div class="card-dark stat-themed stat-amber tilt" style="padding:18px;">
+    <div style="display:flex;align-items:center;gap:10px;color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;font-weight:600;">
+      <i data-lucide="layers" style="width:14px;height:14px;"></i>Активных ниш
+    </div>
+    <div style="font-size:2rem;font-weight:800;color:#fff;margin-top:6px;letter-spacing:-.03em;" data-count="{{ kpi.niches_count }}">{{ kpi.niches_count }}</div>
+    <div style="color:var(--muted);font-size:.78rem;margin-top:4px;font-weight:500;">с продажами за период</div>
+  </div>
+
+  <div class="card-dark stat-themed stat-green tilt" style="padding:18px;">
+    <div style="display:flex;align-items:center;gap:10px;color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;font-weight:600;">
+      <i data-lucide="receipt" style="width:14px;height:14px;"></i>Средний чек
+    </div>
+    <div style="font-size:2rem;font-weight:800;color:#fff;margin-top:6px;letter-spacing:-.03em;">{{ kpi.avg_check_str }}</div>
+    <div style="color:var(--muted);font-size:.78rem;margin-top:4px;font-weight:500;">по всему маркету</div>
+  </div>
+
+</div>
+
+<!-- ───────── Top categories pie + Growers ───────── -->
+<div style="display:grid;grid-template-columns:1.3fr 1fr;gap:16px;margin-bottom:22px;">
+  <div class="card-dark" style="padding:20px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <div style="font-weight:700;color:#fff;font-size:1.05rem;letter-spacing:-.01em;">Доли категорий</div>
+      <div style="color:var(--muted);font-size:.78rem;">{{ top_categories|length }} топ-ниш</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:center;">
+      <div style="position:relative;height:280px;">
+        <canvas id="catPie"></canvas>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;max-height:280px;overflow-y:auto;">
+        {% for c in top_categories %}
+        <div style="display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:8px;font-size:.85rem;" class="cat-row">
+          <div style="width:10px;height:10px;border-radius:3px;flex-shrink:0;background:var(--cat-color-{{ loop.index0 }});"></div>
+          <div style="flex:1;color:var(--text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ c.name }}</div>
+          <div style="color:#fff;font-weight:600;font-variant-numeric:tabular-nums;">{{ "%.1f"|format(c.share*100) }}%</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="card-dark" style="padding:20px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <div style="font-weight:700;color:#fff;font-size:1.05rem;letter-spacing:-.01em;display:flex;align-items:center;gap:8px;">
+        <i data-lucide="rocket" style="width:18px;height:18px;color:#4ade80;"></i>
+        Растущие селлеры
+      </div>
+      <div style="color:var(--muted);font-size:.78rem;">топ-10</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      {% for s in growers %}
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:rgba(74,222,128,.05);border:1px solid rgba(74,222,128,.12);">
+        <div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#4ade80,#22c55e);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:.75rem;flex-shrink:0;">{{ loop.index }}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="color:#fff;font-weight:600;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ s.name }}</div>
+          <div style="color:var(--muted);font-size:.72rem;">{{ s.revenue_str }}</div>
+        </div>
+        <div style="color:#4ade80;font-weight:700;font-size:.95rem;font-variant-numeric:tabular-nums;">+{{ "%.0f"|format(s.growth*100) }}%</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- ───────── Top sellers table ───────── -->
+<div class="card-dark" style="padding:20px;margin-bottom:22px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="font-weight:700;color:#fff;font-size:1.05rem;letter-spacing:-.01em;">Топ селлеров рынка</div>
+      <span class="badge-soft">{{ top_sellers|length }} из {{ all_sellers_count }}</span>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <input id="sellerSearch" placeholder="Поиск по названию…" style="background:rgba(15,18,32,.6);border:1px solid rgba(255,255,255,.12);color:#fff;border-radius:10px;padding:8px 12px;font-size:.85rem;outline:none;font-family:inherit;width:240px;">
+    </div>
+  </div>
+  <div style="overflow-x:auto;">
+    <table class="market-table" style="width:100%;border-collapse:collapse;font-size:.85rem;">
+      <thead>
+        <tr style="text-align:left;color:var(--muted);font-weight:600;font-size:.74rem;text-transform:uppercase;letter-spacing:.04em;">
+          <th style="padding:10px 8px;width:40px;">#</th>
+          <th style="padding:10px 8px;">Магазин</th>
+          <th style="padding:10px 8px;text-align:right;">Выручка</th>
+          <th style="padding:10px 8px;text-align:right;">Рост</th>
+          <th style="padding:10px 8px;text-align:right;">Доля</th>
+          <th style="padding:10px 8px;text-align:right;">Заказов</th>
+          <th style="padding:10px 8px;text-align:right;">В день</th>
+        </tr>
+      </thead>
+      <tbody id="sellerTbody">
+        {% for s in top_sellers %}
+        <tr style="border-top:1px solid rgba(255,255,255,.04);">
+          <td style="padding:12px 8px;color:var(--muted);font-weight:600;">{{ loop.index }}</td>
+          <td style="padding:12px 8px;">
+            <div style="color:#fff;font-weight:600;">{{ s.name }}</div>
+            {% if s.legal %}<div style="color:var(--muted);font-size:.72rem;margin-top:2px;">{{ s.legal[:60] }}</div>{% endif %}
+          </td>
+          <td style="padding:12px 8px;text-align:right;color:#fff;font-weight:600;font-variant-numeric:tabular-nums;">{{ s.revenue_str }}</td>
+          <td style="padding:12px 8px;text-align:right;font-weight:600;font-variant-numeric:tabular-nums;color:{% if s.growth>=0 %}#4ade80{% else %}#fb7185{% endif %};">
+            {{ "%+.1f"|format(s.growth*100) }}%
+          </td>
+          <td style="padding:12px 8px;text-align:right;color:var(--text-2);font-variant-numeric:tabular-nums;">{{ "%.2f"|format(s.share*100) }}%</td>
+          <td style="padding:12px 8px;text-align:right;color:var(--text-2);font-variant-numeric:tabular-nums;">{{ "{:,}".format(s.orders_period).replace(",", " ") }}</td>
+          <td style="padding:12px 8px;text-align:right;color:var(--muted);font-variant-numeric:tabular-nums;">{{ "%.0f"|format(s.sold_per_day) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ───────── Top niches ───────── -->
+<div class="card-dark" style="padding:20px;margin-bottom:22px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="font-weight:700;color:#fff;font-size:1.05rem;letter-spacing:-.01em;">Топ ниш</div>
+      <span class="badge-soft">{{ top_niches|length }} из {{ all_niches_count }}</span>
+    </div>
+  </div>
+  <div style="overflow-x:auto;">
+    <table class="market-table" style="width:100%;border-collapse:collapse;font-size:.85rem;">
+      <thead>
+        <tr style="text-align:left;color:var(--muted);font-weight:600;font-size:.74rem;text-transform:uppercase;letter-spacing:.04em;">
+          <th style="padding:10px 8px;width:40px;">#</th>
+          <th style="padding:10px 8px;">Ниша</th>
+          <th style="padding:10px 8px;text-align:right;">Выручка</th>
+          <th style="padding:10px 8px;text-align:right;">Рост</th>
+          <th style="padding:10px 8px;text-align:right;">Магазинов</th>
+          <th style="padding:10px 8px;text-align:right;">Карточек</th>
+          <th style="padding:10px 8px;text-align:right;">Медиана цены</th>
+          <th style="padding:10px 8px;text-align:right;">На магазин</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for n in top_niches %}
+        <tr style="border-top:1px solid rgba(255,255,255,.04);">
+          <td style="padding:12px 8px;color:var(--muted);font-weight:600;">{{ loop.index }}</td>
+          <td style="padding:12px 8px;color:#fff;max-width:480px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ n.category }}</td>
+          <td style="padding:12px 8px;text-align:right;color:#fff;font-weight:600;font-variant-numeric:tabular-nums;">{{ n.revenue_str }}</td>
+          <td style="padding:12px 8px;text-align:right;font-weight:600;font-variant-numeric:tabular-nums;color:{% if n.growth>=0 %}#4ade80{% else %}#fb7185{% endif %};">
+            {{ "%+.0f"|format(n.growth*100) }}%
+          </td>
+          <td style="padding:12px 8px;text-align:right;color:var(--text-2);font-variant-numeric:tabular-nums;">{{ "{:,}".format(n.shops).replace(",", " ") }}</td>
+          <td style="padding:12px 8px;text-align:right;color:var(--text-2);font-variant-numeric:tabular-nums;">{{ "{:,}".format(n.cards).replace(",", " ") }}</td>
+          <td style="padding:12px 8px;text-align:right;color:var(--muted);font-variant-numeric:tabular-nums;">{{ "{:,}".format(n.price_median).replace(",", " ") }}</td>
+          <td style="padding:12px 8px;text-align:right;color:var(--muted);font-variant-numeric:tabular-nums;">{{ n.rev_per_shop_str }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endif %}
+
+<!-- ───────── Upload modal ───────── -->
+<div id="uploadModal" style="display:none;position:fixed;inset:0;background:rgba(7,8,15,.85);z-index:1000;align-items:center;justify-content:center;backdrop-filter:blur(8px);">
+  <div class="card-dark" style="width:520px;max-width:92vw;padding:28px;">
+    <div style="display:flex;align-items:start;justify-content:space-between;gap:16px;margin-bottom:18px;">
+      <div>
+        <div style="font-weight:700;color:#fff;font-size:1.2rem;letter-spacing:-.02em;">Импорт CSV из ZoomSelling</div>
+        <div style="color:var(--muted);font-size:.85rem;margin-top:4px;">Все 3 файла — за один раз</div>
+      </div>
+      <button onclick="document.getElementById('uploadModal').style.display='none';" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1.4rem;line-height:1;">×</button>
+    </div>
+    <form method="post" action="/market/upload" enctype="multipart/form-data">
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div>
+          <label style="color:var(--text-2);font-size:.85rem;font-weight:500;display:block;margin-bottom:6px;">📊 Рейтинг магазинов</label>
+          <input type="file" name="sellers" accept=".csv" required style="width:100%;padding:10px;background:rgba(15,18,32,.6);border:1px dashed rgba(255,255,255,.18);border-radius:10px;color:var(--text-2);font-family:inherit;font-size:.85rem;">
+        </div>
+        <div>
+          <label style="color:var(--text-2);font-size:.85rem;font-weight:500;display:block;margin-bottom:6px;">🎯 Ниши — таблица</label>
+          <input type="file" name="niches" accept=".csv" required style="width:100%;padding:10px;background:rgba(15,18,32,.6);border:1px dashed rgba(255,255,255,.18);border-radius:10px;color:var(--text-2);font-family:inherit;font-size:.85rem;">
+        </div>
+        <div>
+          <label style="color:var(--text-2);font-size:.85rem;font-weight:500;display:block;margin-bottom:6px;">🌳 Категории — карта эффективности</label>
+          <input type="file" name="categories" accept=".csv" required style="width:100%;padding:10px;background:rgba(15,18,32,.6);border:1px dashed rgba(255,255,255,.18);border-radius:10px;color:var(--text-2);font-family:inherit;font-size:.85rem;">
+        </div>
+        <div>
+          <label style="color:var(--text-2);font-size:.85rem;font-weight:500;display:block;margin-bottom:6px;">Период</label>
+          <input type="text" name="period" value="30 дней" style="width:100%;padding:10px 12px;background:rgba(15,18,32,.6);border:1px solid rgba(255,255,255,.12);border-radius:10px;color:#fff;font-family:inherit;font-size:.85rem;outline:none;">
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:22px;justify-content:flex-end;">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('uploadModal').style.display='none';">Отмена</button>
+        <button type="submit" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:6px;">
+          <i data-lucide="upload-cloud" style="width:14px;height:14px;"></i>
+          Импортировать
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+  /* Pie palette */
+  :root {
+    --cat-color-0: #818cf8;  --cat-color-1: #a78bfa;  --cat-color-2: #c084fc;
+    --cat-color-3: #22d3ee;  --cat-color-4: #4ade80;  --cat-color-5: #fbbf24;
+    --cat-color-6: #fb7185;  --cat-color-7: #f472b6;  --cat-color-8: #34d399;
+    --cat-color-9: #60a5fa;  --cat-color-10: #f59e0b; --cat-color-11: #ef4444;
+  }
+  .badge-soft {
+    background: rgba(129,140,248,.12);
+    color: #c7d2fe;
+    border: 1px solid rgba(129,140,248,.25);
+    border-radius: 8px;
+    padding: 3px 8px;
+    font-size: .72rem;
+    font-weight: 600;
+  }
+  .market-table tbody tr:hover {
+    background: rgba(129,140,248,.04);
+  }
+  .cat-row:hover {
+    background: rgba(129,140,248,.06);
+  }
+</style>
+
+{% if has_data %}
+<script>
+  // ── Pie chart ──
+  const catLabels   = {{ top_categories|map(attribute='name')|list|tojson }};
+  const catValues   = {{ top_categories|map(attribute='revenue')|list|tojson }};
+  const catColors   = ['#818cf8','#a78bfa','#c084fc','#22d3ee','#4ade80','#fbbf24','#fb7185','#f472b6','#34d399','#60a5fa','#f59e0b','#ef4444'];
+  const ctx = document.getElementById('catPie').getContext('2d');
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: catLabels,
+      datasets: [{
+        data: catValues,
+        backgroundColor: catColors,
+        borderColor: '#0a0c16',
+        borderWidth: 3,
+        hoverOffset: 8,
+      }]
+    },
+    options: {
+      cutout: '62%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (c) => {
+              const v = c.parsed;
+              const total = c.dataset.data.reduce((a,b)=>a+b,0);
+              const pct = (v/total*100).toFixed(1);
+              const fmt = v>=1e9 ? (v/1e9).toFixed(1)+' млрд' : v>=1e6 ? (v/1e6).toFixed(1)+' млн' : Math.round(v).toLocaleString('ru-RU');
+              return `${c.label}: ${fmt} (${pct}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+
+  // ── Sellers search ──
+  const search = document.getElementById('sellerSearch');
+  const tbody  = document.getElementById('sellerTbody');
+  if (search && tbody) {
+    search.addEventListener('input', () => {
+      const q = search.value.toLowerCase();
+      [...tbody.children].forEach(tr => {
+        const name = (tr.children[1]?.textContent || '').toLowerCase();
+        tr.style.display = name.includes(q) ? '' : 'none';
+      });
+    });
+  }
+</script>
+{% endif %}
+
+{% endblock %}

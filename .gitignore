@@ -4,3 +4,4 @@ __pycache__/
 .env
 fullsell.db
 *.db
+market_data/

@@ -10,6 +10,8 @@ services:
       CONNECTOR_SECRET: ${CONNECTOR_SECRET}
     expose:
       - "8000"
+    volumes:
+      - market_data:/app/market_data
     depends_on:
       db:
         condition: service_healthy
@@ -48,3 +50,4 @@ volumes:
   pgdata:
   caddy_data:
   caddy_config:
+  market_data:

@@ -1,7 +1,7 @@
 import os
 import hashlib
 from pathlib import Path
-from fastapi import FastAPI, Request, Form, Cookie
+from fastapi import FastAPI, Request, Form, Cookie, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.gzip import GZipMiddleware
@@ -19,6 +19,7 @@ from uzum import (
     get_ad_campaigns, get_boost_orders_products, get_ad_campaign_stats,
 )
 from ai import ask as ai_ask, audit_product, promotion_strategy
+import market
 
 _AUDIT_CACHE = {}  # (shop_id, product_id) -> (timestamp, text)
 _AUDIT_TTL = 3600  # 1 час
@@ -249,6 +250,46 @@ async def client_delete(cid: int, session: str = Cookie(default=None)):
         return RedirectResponse("/login")
     delete_client(cid)
     return RedirectResponse("/clients", status_code=303)
+
+# ── Market intelligence (UZUM-wide, ZoomSelling import) ──────────────────────
+
+@app.get("/market", response_class=HTMLResponse)
+async def market_page(request: Request, session: str = Cookie(default=None)):
+    if not _auth(session):
+        return RedirectResponse("/login")
+    return templates.TemplateResponse(request, "market.html", market.load_market_data())
+
+
+@app.post("/market/upload")
+async def market_upload(
+    sellers:   UploadFile = File(...),
+    niches:    UploadFile = File(...),
+    categories: UploadFile = File(...),
+    period:    str        = Form("30 дней"),
+    session:   str        = Cookie(default=None),
+):
+    if not _auth(session):
+        return RedirectResponse("/login")
+    market.MARKET_DIR.mkdir(exist_ok=True)
+    for upload, dest in (
+        (sellers,    market.SELLERS_FILE),
+        (niches,     market.NICHES_FILE),
+        (categories, market.CATEGORIES_FILE),
+    ):
+        data = await upload.read()
+        dest.write_bytes(data)
+    market.save_meta(period=period or "30 дней")
+    return RedirectResponse("/market", status_code=303)
+
+
+@app.post("/market/clear")
+async def market_clear(session: str = Cookie(default=None)):
+    if not _auth(session):
+        return RedirectResponse("/login")
+    for f in (market.SELLERS_FILE, market.NICHES_FILE, market.CATEGORIES_FILE, market.META_FILE):
+        if f.exists(): f.unlink()
+    return RedirectResponse("/market", status_code=303)
+
 
 # ── Shop dashboard ────────────────────────────────────────────────────────────
 
