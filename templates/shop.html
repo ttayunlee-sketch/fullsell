@@ -358,41 +358,55 @@
               <th>Кампания</th>
               <th>Период</th>
               <th>Статус</th>
-              <th>Бюджет</th>
+              <th>SKU</th>
+              <th>Недельный бюджет</th>
+              <th>Дневной бюджет</th>
               <th>Остаток</th>
-              <th>Показы</th>
-              <th>Клики</th>
-              <th>Продажи</th>
-              <th>Выручка</th>
-              <th>ДРР</th>
-              <th>Траты</th>
+              <th>Использовано</th>
             </tr>
           </thead>
           <tbody>
             {% for camp in cabinet.campaigns %}
-            {% set st = camp.get('status', {}) %}
-            {% set status = st.value if st is mapping else (camp.get('status') or '—') %}
+            {% set status = camp.get('status') or '—' %}
+            {% set period = camp.get('period') or {} %}
+            {% set bcfg = camp.get('budgetConfig') or {} %}
+            {% set bplan = camp.get('budgetPlan') or {} %}
+            {% set cper = bplan.get('currentPeriod') or {} if bplan else {} %}
+            {% set weekly = cper.get('weeklyAmount') or bcfg.get('weeklyAmount') or 0 %}
+            {% set daily = cper.get('dailyAmount') or 0 %}
+            {% set remaining = cper.get('weeklyAmountRemaining') or 0 %}
+            {% set used_pct = ((weekly - remaining) / weekly * 100) if weekly else 0 %}
             <tr>
-              <td class="product-name">{{ camp.get('name') or camp.get('title') or '—' }}<div style="color:#94a3b8;font-size:.72rem;margin-top:2px;">ID: {{ camp.get('id') }}</div></td>
-              <td style="color:#cbd5e1;font-size:.82rem;white-space:nowrap;">{{ camp.get('startDate', camp.get('from','—'))[:10] }}<br>{{ camp.get('endDate', camp.get('to','—'))[:10] }}</td>
+              <td class="product-name">{{ camp.get('name') or '—' }}<div style="color:#94a3b8;font-size:.72rem;margin-top:2px;">ID: {{ camp.get('id') }}</div></td>
+              <td style="color:#cbd5e1;font-size:.82rem;white-space:nowrap;">{{ period.get('dateFrom', '—') }}<br>{{ period.get('dateTo', '—') }}</td>
               <td>
-                {% if status in ('ACTIVE','RUNNING') %}<span class="badge-ok">Активна</span>
-                {% elif status in ('FINISHED','COMPLETED','ENDED') %}<span class="badge-off">Завершена</span>
+                {% if status == 'ACTIVE' %}<span class="badge-ok">Активна</span>
+                {% elif status == 'COMPLETED' %}<span class="badge-off">Завершена</span>
                 {% elif status == 'PAUSED' %}<span class="badge-warn">Пауза</span>
+                {% elif status == 'PLANNED' %}<span class="badge-warn">Запланирована</span>
                 {% else %}<span class="badge-off">{{ status }}</span>{% endif %}
               </td>
-              <td style="color:#fff;font-weight:500;white-space:nowrap;">{{ "{:,}".format((camp.get('budget') or 0)|int) }}</td>
-              <td style="color:#cbd5e1;white-space:nowrap;">{{ "{:,}".format((camp.get('remainingBudget') or camp.get('balance') or 0)|int) }}</td>
-              <td>{{ "{:,}".format(camp.get('impressions', 0) or 0) }}</td>
-              <td>{{ "{:,}".format(camp.get('clicks', 0) or 0) }}</td>
-              <td>{{ camp.get('sales', 0) or 0 }}</td>
-              <td style="color:#86efac;white-space:nowrap;">{{ "{:,}".format((camp.get('revenue') or camp.get('revenueAmount') or 0)|int) }}</td>
-              <td>{{ camp.get('drr', camp.get('acos', '—')) }}{% if camp.get('drr') is not none %}%{% endif %}</td>
-              <td style="color:#fca5a5;white-space:nowrap;">{{ "{:,}".format((camp.get('spent') or camp.get('expense') or 0)|int) }}</td>
+              <td style="color:#fff;">{{ camp.get('skuGroupsCount') or 0 }}</td>
+              <td style="color:#fff;font-weight:500;white-space:nowrap;">{{ "{:,}".format(weekly|int) }} <span style="color:#94a3b8;font-size:.72rem;">сум</span></td>
+              <td style="color:#cbd5e1;white-space:nowrap;">{% if daily %}{{ "{:,}".format(daily|int) }} сум{% else %}—{% endif %}</td>
+              <td style="color:#86efac;white-space:nowrap;">{% if remaining %}{{ "{:,}".format(remaining|int) }} сум{% else %}—{% endif %}</td>
+              <td style="min-width:140px;">
+                {% if weekly %}
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <div style="flex:1;height:6px;background:#262b3d;border-radius:3px;overflow:hidden;">
+                      <div style="width:{{ used_pct|round(1) }}%;height:100%;background:linear-gradient(90deg,#a5b4fc,#c4b5fd);"></div>
+                    </div>
+                    <span style="color:#cbd5e1;font-size:.78rem;white-space:nowrap;">{{ used_pct|round(0)|int }}%</span>
+                  </div>
+                {% else %}—{% endif %}
+              </td>
             </tr>
             {% endfor %}
           </tbody>
         </table>
+      </div>
+      <div style="color:#94a3b8;font-size:.78rem;margin-top:10px;">
+        💡 Показы / клики / ДРР / выручка с рекламы — будут на следующем шаге через Cube.js endpoint, сейчас доступны только бюджеты и статусы.
       </div>
     </div>
   {% else %}

@@ -93,12 +93,15 @@ def get_ad_campaigns(cabinet_token: str, seller_id: int, days: int = 30) -> dict
             data = r.json() if r.content else {}
             payload = data.get("payload") if isinstance(data, dict) else None
             content = []
-            if isinstance(payload, dict):
+            # UZUM cabinet API: payload — это массив кампаний напрямую
+            if isinstance(payload, list):
+                content = payload
+            elif isinstance(payload, dict):
                 content = payload.get("content") or payload.get("items") or []
-            elif isinstance(data, dict):
-                content = data.get("content") or data.get("items") or []
             elif isinstance(data, list):
                 content = data
+            elif isinstance(data, dict):
+                content = data.get("content") or data.get("items") or []
             if not content:
                 break
             items.extend(content)
