@@ -20,37 +20,50 @@
   </div>
 </div>
 
+<!-- Опасный алерт ДРР > 50% -->
+{% if cabinet.totals.crr and cabinet.totals.crr > 50 %}
+<div class="danger-banner">
+  <div class="banner-icon">
+    <i data-lucide="alert-triangle" style="width:20px;height:20px;"></i>
+  </div>
+  <div style="flex:1;">
+    <div style="color:#fff;font-weight:700;font-size:.95rem;margin-bottom:2px;">⚠ Высокий ДРР: {{ cabinet.totals.crr }}%</div>
+    <div style="color:#cbd5e1;font-size:.82rem;">Реклама съедает больше выручки. Открой «Продвижение» — найди и останови убыточные кампании.</div>
+  </div>
+</div>
+{% endif %}
+
 <!-- Статы -->
 <div class="row g-3 mb-4">
   <div class="col-6 col-md-3">
-    <div class="stat">
-      <div class="stat-accent" style="background:linear-gradient(90deg,#6366f1,#8b5cf6);"></div>
-      <span class="stat-icon">📦</span>
-      <div class="stat-val">{{ stats.total }}</div>
+    <div class="stat stat-themed stat-violet tilt">
+      <div class="stat-accent"></div>
+      <span class="stat-icon"><i data-lucide="package" style="width:20px;height:20px;"></i></span>
+      <div class="stat-val" data-count="{{ stats.total }}">0</div>
       <div class="stat-lbl">Всего товаров</div>
     </div>
   </div>
   <div class="col-6 col-md-3">
-    <div class="stat">
-      <div class="stat-accent" style="background:linear-gradient(90deg,#22c55e,#16a34a);"></div>
-      <span class="stat-icon">✅</span>
-      <div class="stat-val">{{ stats.active }}</div>
+    <div class="stat stat-themed stat-green tilt">
+      <div class="stat-accent"></div>
+      <span class="stat-icon"><i data-lucide="check-circle-2" style="width:20px;height:20px;"></i></span>
+      <div class="stat-val" data-count="{{ stats.active }}">0</div>
       <div class="stat-lbl">Активных</div>
     </div>
   </div>
   <div class="col-6 col-md-3">
-    <div class="stat">
-      <div class="stat-accent" style="background:linear-gradient(90deg,#3b82f6,#2563eb);"></div>
-      <span class="stat-icon">👁</span>
-      <div class="stat-val">{{ "{:,}".format(stats.views) }}</div>
+    <div class="stat stat-themed stat-cyan tilt">
+      <div class="stat-accent"></div>
+      <span class="stat-icon"><i data-lucide="eye" style="width:20px;height:20px;"></i></span>
+      <div class="stat-val" data-count="{{ stats.views }}">0</div>
       <div class="stat-lbl">Просмотров</div>
     </div>
   </div>
   <div class="col-6 col-md-3">
-    <div class="stat">
-      <div class="stat-accent" style="background:linear-gradient(90deg,#f59e0b,#d97706);"></div>
-      <span class="stat-icon">⭐</span>
-      <div class="stat-val">{{ stats.rating }}</div>
+    <div class="stat stat-themed stat-amber tilt">
+      <div class="stat-accent"></div>
+      <span class="stat-icon"><i data-lucide="star" style="width:20px;height:20px;"></i></span>
+      <div class="stat-val" data-count="{{ stats.rating }}" data-decimals="1">0.0</div>
       <div class="stat-lbl">Средний рейтинг</div>
     </div>
   </div>
@@ -190,26 +203,26 @@
   {% if finance.orders_count > 0 or finance.raw_count > 0 %}
   <div class="row g-3 mb-3">
     <div class="col-6 col-md-3">
-      <div class="stat">
-        <div class="stat-accent" style="background:linear-gradient(90deg,#4ade80,#22c55e);"></div>
-        <span class="stat-icon">💰</span>
-        <div class="stat-val">{{ "{:,}".format(finance.total_revenue) }}</div>
+      <div class="stat stat-themed stat-green tilt">
+        <div class="stat-accent"></div>
+        <span class="stat-icon"><i data-lucide="banknote" style="width:20px;height:20px;"></i></span>
+        <div class="stat-val" data-count="{{ finance.total_revenue }}">0</div>
         <div class="stat-lbl">Выручка, сум · 30 дн.</div>
       </div>
     </div>
     <div class="col-6 col-md-3">
-      <div class="stat">
-        <div class="stat-accent" style="background:linear-gradient(90deg,#60a5fa,#3b82f6);"></div>
-        <span class="stat-icon">📦</span>
-        <div class="stat-val">{{ finance.total_qty }}</div>
+      <div class="stat stat-themed stat-cyan tilt">
+        <div class="stat-accent"></div>
+        <span class="stat-icon"><i data-lucide="package-2" style="width:20px;height:20px;"></i></span>
+        <div class="stat-val" data-count="{{ finance.total_qty }}">0</div>
         <div class="stat-lbl">Продано шт.</div>
       </div>
     </div>
     <div class="col-6 col-md-3">
-      <div class="stat">
-        <div class="stat-accent" style="background:linear-gradient(90deg,#a78bfa,#8b5cf6);"></div>
-        <span class="stat-icon">💎</span>
-        <div class="stat-val">{{ "{:,}".format(finance.total_profit) }}</div>
+      <div class="stat stat-themed stat-violet tilt">
+        <div class="stat-accent"></div>
+        <span class="stat-icon"><i data-lucide="gem" style="width:20px;height:20px;"></i></span>
+        <div class="stat-val" data-count="{{ finance.total_profit }}">0</div>
         <div class="stat-lbl">Чистая прибыль, сум</div>
       </div>
     </div>
@@ -217,26 +230,26 @@
 
   <div class="row g-3 mb-3">
     <div class="col-6 col-md-4">
-      <div class="stat">
-        <div class="stat-accent" style="background:linear-gradient(90deg,#fbbf24,#f59e0b);"></div>
-        <span class="stat-icon">🧾</span>
-        <div class="stat-val">{{ "{:,}".format(finance.avg_check) }}</div>
+      <div class="stat stat-themed stat-amber tilt">
+        <div class="stat-accent"></div>
+        <span class="stat-icon"><i data-lucide="receipt" style="width:20px;height:20px;"></i></span>
+        <div class="stat-val" data-count="{{ finance.avg_check }}">0</div>
         <div class="stat-lbl">Средний чек, сум</div>
       </div>
     </div>
     <div class="col-6 col-md-4">
-      <div class="stat">
-        <div class="stat-accent" style="background:linear-gradient(90deg,#fbbf24,#f59e0b);"></div>
-        <span class="stat-icon">🎯</span>
-        <div class="stat-val">{{ finance.conversion }}%</div>
-        <div class="stat-lbl">Конверсия (заказы / просмотры)</div>
+      <div class="stat stat-themed stat-cyan tilt">
+        <div class="stat-accent"></div>
+        <span class="stat-icon"><i data-lucide="target" style="width:20px;height:20px;"></i></span>
+        <div class="stat-val" data-count="{{ finance.conversion }}" data-decimals="2">0</div>
+        <div class="stat-lbl">% Конверсия (заказы / просмотры)</div>
       </div>
     </div>
     <div class="col-6 col-md-4">
-      <div class="stat">
-        <div class="stat-accent" style="background:linear-gradient(90deg,#f87171,#ef4444);"></div>
-        <span class="stat-icon">❌</span>
-        <div class="stat-val">{{ finance.cancelled_count }}</div>
+      <div class="stat stat-themed stat-rose tilt">
+        <div class="stat-accent"></div>
+        <span class="stat-icon"><i data-lucide="x-circle" style="width:20px;height:20px;"></i></span>
+        <div class="stat-val" data-count="{{ finance.cancelled_count }}">0</div>
         <div class="stat-lbl">Отменённых заказов</div>
       </div>
     </div>
@@ -374,35 +387,35 @@
     {% if t_exp or t_imp %}
     <div class="row g-3 mb-3">
       <div class="col-6 col-md-3">
-        <div class="stat">
-          <div class="stat-accent" style="background:linear-gradient(90deg,#a5b4fc,#c4b5fd);"></div>
-          <span class="stat-icon">👁</span>
-          <div class="stat-val">{{ "{:,}".format(t_imp) }}</div>
+        <div class="stat stat-themed stat-violet tilt">
+          <div class="stat-accent"></div>
+          <span class="stat-icon"><i data-lucide="eye" style="width:20px;height:20px;"></i></span>
+          <div class="stat-val" data-count="{{ t_imp }}">0</div>
           <div class="stat-lbl">Показов рекламы</div>
         </div>
       </div>
       <div class="col-6 col-md-3">
-        <div class="stat">
-          <div class="stat-accent" style="background:linear-gradient(90deg,#60a5fa,#3b82f6);"></div>
-          <span class="stat-icon">🖱</span>
-          <div class="stat-val">{{ "{:,}".format(t_clk) }}</div>
+        <div class="stat stat-themed stat-cyan tilt">
+          <div class="stat-accent"></div>
+          <span class="stat-icon"><i data-lucide="mouse-pointer-click" style="width:20px;height:20px;"></i></span>
+          <div class="stat-val" data-count="{{ t_clk }}">0</div>
           <div class="stat-lbl">Кликов{% if t_imp %} · {{ ((t_clk/t_imp*100)|round(2)) }}% CTR{% endif %}</div>
         </div>
       </div>
       <div class="col-6 col-md-3">
-        <div class="stat">
-          <div class="stat-accent" style="background:linear-gradient(90deg,#fca5a5,#f87171);"></div>
-          <span class="stat-icon">💸</span>
-          <div class="stat-val">{{ "{:,}".format(t_exp) }}</div>
+        <div class="stat stat-themed stat-rose tilt">
+          <div class="stat-accent"></div>
+          <span class="stat-icon"><i data-lucide="banknote" style="width:20px;height:20px;"></i></span>
+          <div class="stat-val" data-count="{{ t_exp }}">0</div>
           <div class="stat-lbl">Потрачено, сум</div>
         </div>
       </div>
       <div class="col-6 col-md-3">
-        <div class="stat">
-          <div class="stat-accent" style="background:linear-gradient(90deg,{% if t_crr <= 20 %}#6ee7a7,#22c55e{% elif t_crr <= 40 %}#fcd34d,#f59e0b{% else %}#fca5a5,#ef4444{% endif %});"></div>
-          <span class="stat-icon">📊</span>
-          <div class="stat-val">{{ t_crr }}%</div>
-          <div class="stat-lbl">ДРР · выручка {{ "{:,}".format(t_rev) }} сум</div>
+        <div class="stat stat-themed {% if t_crr <= 20 %}stat-green{% elif t_crr <= 40 %}stat-amber{% else %}stat-rose{% endif %} tilt">
+          <div class="stat-accent"></div>
+          <span class="stat-icon"><i data-lucide="trending-up" style="width:20px;height:20px;"></i></span>
+          <div class="stat-val" data-count="{{ t_crr }}" data-decimals="2">0</div>
+          <div class="stat-lbl">% ДРР · выручка {{ "{:,}".format(t_rev) }} сум</div>
         </div>
       </div>
     </div>

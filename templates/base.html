@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}FullSell{% endblock %}</title>
 
+<!-- Inline SVG favicon (FS gradient mark) -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23818cf8'/%3E%3Cstop offset='.5' stop-color='%23a78bfa'/%3E%3Cstop offset='1' stop-color='%23c084fc'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Ctext x='50%25' y='52%25' dominant-baseline='middle' text-anchor='middle' font-family='Inter,sans-serif' font-weight='800' font-size='28' fill='white'%3EFS%3C/text%3E%3C/svg%3E"/>
+
 <!-- Inter font (premium SaaS look) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -65,11 +68,6 @@
 
   body {
     background: var(--bg);
-    background-image:
-      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(129,140,248,.12), transparent 60%),
-      radial-gradient(ellipse 60% 40% at 100% 100%, rgba(192,132,252,.06), transparent 70%),
-      radial-gradient(ellipse 50% 30% at 0% 50%, rgba(34,211,238,.04), transparent 70%);
-    background-attachment: fixed;
     color: var(--text);
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     font-size: 14px;
@@ -78,10 +76,31 @@
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* Animated gradient blobs background */
+  body::before {
+    content: '';
+    position: fixed; inset: -20%;
+    background:
+      radial-gradient(ellipse 50% 40% at 20% 20%, rgba(129,140,248,.18), transparent 60%),
+      radial-gradient(ellipse 50% 40% at 80% 30%, rgba(192,132,252,.12), transparent 60%),
+      radial-gradient(ellipse 50% 40% at 50% 80%, rgba(34,211,238,.08), transparent 60%);
+    filter: blur(40px);
+    animation: drift 24s ease-in-out infinite alternate;
+    pointer-events: none;
+    z-index: 0;
+  }
+  @keyframes drift {
+    0%   { transform: translate(0, 0) rotate(0deg); }
+    50%  { transform: translate(40px, -30px) rotate(3deg); }
+    100% { transform: translate(-30px, 40px) rotate(-3deg); }
   }
 
   /* Subtle dotted texture */
-  body::before {
+  body::after {
     content: '';
     position: fixed; inset: 0;
     background-image: radial-gradient(rgba(255,255,255,.025) 1px, transparent 1px);
@@ -498,6 +517,111 @@
   .main > *:nth-child(3) { animation-delay: .1s; }
   .main > *:nth-child(4) { animation-delay: .15s; }
 
+  /* ─────────────────── STAT VARIANTS (per-card themes) ─────────────────── */
+  .stat-violet  { --c1: #818cf8; --c2: #a78bfa; --c3: #c084fc; }
+  .stat-cyan    { --c1: #22d3ee; --c2: #818cf8; --c3: #a78bfa; }
+  .stat-green   { --c1: #4ade80; --c2: #22d3ee; --c3: #818cf8; }
+  .stat-amber   { --c1: #fbbf24; --c2: #f97316; --c3: #ef4444; }
+  .stat-rose    { --c1: #fb7185; --c2: #f43f5e; --c3: #c084fc; }
+  .stat-themed { position: relative; }
+  .stat-themed::before {
+    background: radial-gradient(120% 80% at 0% 0%,
+      color-mix(in oklab, var(--c1, #818cf8) 12%, transparent),
+      transparent 60%) !important;
+  }
+  .stat-themed:hover {
+    border-color: color-mix(in oklab, var(--c1, #818cf8) 35%, transparent) !important;
+    box-shadow:
+      0 12px 40px rgba(0,0,0,.5),
+      0 0 40px color-mix(in oklab, var(--c1, #818cf8) 25%, transparent),
+      0 0 0 1px rgba(255,255,255,.08) !important;
+  }
+  .stat-themed .stat-icon {
+    background: linear-gradient(135deg,
+      color-mix(in oklab, var(--c1, #818cf8) 20%, transparent),
+      color-mix(in oklab, var(--c2, #a78bfa) 20%, transparent)) !important;
+    border-color: color-mix(in oklab, var(--c1, #818cf8) 35%, transparent) !important;
+    color: var(--c1, #fff);
+  }
+  .stat-themed .stat-accent {
+    background: linear-gradient(90deg, var(--c1), var(--c2), var(--c3));
+    box-shadow: 0 0 16px color-mix(in oklab, var(--c1, #818cf8) 50%, transparent);
+  }
+  .stat-themed .stat-val {
+    background: linear-gradient(135deg, #fff 0%, color-mix(in oklab, var(--c2, #a78bfa) 50%, white) 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* ─────────────────── 3D TILT ─────────────────── */
+  .tilt {
+    transition: transform .25s cubic-bezier(.4,0,.2,1);
+    transform-style: preserve-3d;
+    will-change: transform;
+  }
+
+  /* ─────────────────── DANGER BANNER (DRR alert) ─────────────────── */
+  .danger-banner {
+    background: linear-gradient(135deg, rgba(251,113,133,.15), rgba(239,68,68,.08));
+    border: 1px solid rgba(251,113,133,.35);
+    border-radius: 14px; padding: 16px 20px;
+    display: flex; align-items: center; gap: 14px;
+    box-shadow: 0 0 40px rgba(251,113,133,.15);
+    margin-bottom: 16px;
+    animation: pulse-danger 2.5s ease-in-out infinite;
+  }
+  @keyframes pulse-danger {
+    50% { box-shadow: 0 0 60px rgba(251,113,133,.3); }
+  }
+  .danger-banner .banner-icon {
+    width: 40px; height: 40px; border-radius: 12px;
+    background: linear-gradient(135deg, #fb7185, #ef4444);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; color: #fff;
+    box-shadow: 0 4px 16px rgba(251,113,133,.4);
+  }
+
+  /* ─────────────────── TOAST ─────────────────── */
+  .toast-stack {
+    position: fixed; top: 24px; right: 24px;
+    display: flex; flex-direction: column; gap: 8px;
+    z-index: 10000;
+  }
+  .toast {
+    background: linear-gradient(180deg, rgba(28,32,52,.95), rgba(15,18,32,.95));
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    padding: 12px 16px;
+    color: #fff; font-size: .88rem; font-weight: 500;
+    box-shadow: 0 10px 40px rgba(0,0,0,.5);
+    display: flex; align-items: center; gap: 10px;
+    min-width: 220px; max-width: 380px;
+    animation: toast-in .3s cubic-bezier(.4,0,.2,1);
+  }
+  .toast.success { border-left: 3px solid var(--green); }
+  .toast.error   { border-left: 3px solid var(--rose); }
+  .toast.info    { border-left: 3px solid var(--primary); }
+  @keyframes toast-in {
+    from { transform: translateX(120%); opacity: 0; }
+    to   { transform: translateX(0); opacity: 1; }
+  }
+  @keyframes toast-out {
+    to { transform: translateX(120%); opacity: 0; }
+  }
+
+  /* ─────────────────── SKELETON ─────────────────── */
+  .skeleton {
+    background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+    border-radius: 8px;
+  }
+  @keyframes shimmer {
+    from { background-position: 200% 0; }
+    to   { background-position: -200% 0; }
+  }
+
   /* ─────────────────── RESPONSIVE ─────────────────── */
   @media (max-width: 768px) {
     .sidebar { width: 76px; padding: 16px 8px; }
@@ -538,13 +662,77 @@
   </div>
 </aside>
 
+<div class="toast-stack" id="toast-stack"></div>
+
 <main class="main">
   {% block content %}{% endblock %}
 </main>
 
 <script>
-  // Render Lucide icons
+  // ── Lucide icons ──
   if (window.lucide) lucide.createIcons();
+
+  // ── Toast notifications ──
+  window.toast = function(msg, type = 'info', timeout = 3500) {
+    const stack = document.getElementById('toast-stack');
+    if (!stack) return;
+    const t = document.createElement('div');
+    t.className = 'toast ' + type;
+    const icon = type === 'success' ? 'check-circle' :
+                 type === 'error'   ? 'alert-circle' : 'info';
+    t.innerHTML = `<i data-lucide="${icon}" style="width:18px;height:18px;flex-shrink:0;color:${type==='success'?'#6ee7a7':type==='error'?'#fb7185':'#a5b4fc'};"></i><span>${msg}</span>`;
+    stack.appendChild(t);
+    if (window.lucide) lucide.createIcons();
+    setTimeout(() => {
+      t.style.animation = 'toast-out .3s forwards';
+      setTimeout(() => t.remove(), 300);
+    }, timeout);
+  };
+
+  // ── Animated number counters ──
+  function animateCounters(root = document) {
+    root.querySelectorAll('[data-count]').forEach(el => {
+      if (el.dataset._animated) return;
+      const target = parseFloat(el.dataset.count) || 0;
+      const decimals = parseInt(el.dataset.decimals || '0');
+      const duration = 800;
+      const start = performance.now();
+      const fmt = n => decimals
+        ? n.toFixed(decimals)
+        : Math.round(n).toLocaleString('ru-RU');
+      const step = now => {
+        const t = Math.min((now - start) / duration, 1);
+        const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
+        el.textContent = fmt(target * eased);
+        if (t < 1) requestAnimationFrame(step);
+        else el.dataset._animated = '1';
+      };
+      requestAnimationFrame(step);
+    });
+  }
+  document.addEventListener('DOMContentLoaded', () => animateCounters());
+  setTimeout(() => animateCounters(), 100);
+
+  // ── Tilt 3D effect on cards ──
+  document.addEventListener('pointermove', e => {
+    const card = e.target.closest('.tilt');
+    if (!card) return;
+    const r = card.getBoundingClientRect();
+    const x = ((e.clientX - r.left) / r.width  - 0.5) * 6;
+    const y = ((e.clientY - r.top)  / r.height - 0.5) * -6;
+    card.style.transform = `perspective(800px) rotateX(${y}deg) rotateY(${x}deg) translateZ(0)`;
+  });
+  document.addEventListener('pointerleave', () => {
+    document.querySelectorAll('.tilt').forEach(c => c.style.transform = '');
+  }, true);
+  document.addEventListener('mouseleave', () => {
+    document.querySelectorAll('.tilt').forEach(c => c.style.transform = '');
+  });
+
+  // Reset tilt when leaving
+  document.querySelectorAll('.tilt').forEach(card => {
+    card.addEventListener('mouseleave', () => card.style.transform = '');
+  });
 </script>
 </body>
 </html>
