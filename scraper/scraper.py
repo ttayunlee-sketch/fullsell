@@ -30,24 +30,39 @@ PAGE_TIMEOUT = int(os.environ.get("SCRAPER_PAGE_TIMEOUT", "45000"))
 # ─────────────────────────────────────────────────────────────────────────────
 
 async def _launch_context(p):
-    """Запуск Chromium с реалистичными параметрами + сохранённой сессией если есть."""
-    browser = await p.chromium.launch(
-        headless=True,
-        args=[
+    """Запуск Chromium с реалистичными параметрами + сохранённой сессией.
+    Если задан UZUM_PROXY (http://user:pass@host:port) — весь трафик идёт через него."""
+    proxy_url = os.environ.get("UZUM_PROXY", "").strip()
+    launch_kwargs = {
+        "headless": True,
+        "args": [
             "--disable-blink-features=AutomationControlled",
             "--no-sandbox",
             "--disable-dev-shm-usage",
         ],
-    )
+    }
+    browser = await p.chromium.launch(**launch_kwargs)
+
     storage_state = STATE_FILE if os.path.exists(STATE_FILE) else None
-    ctx = await browser.new_context(
-        user_agent=USER_AGENT,
-        viewport={"width": 1920, "height": 1080},
-        locale="ru-RU",
-        timezone_id="Asia/Tashkent",
-        storage_state=storage_state,
-        java_script_enabled=True,
-    )
+    ctx_kwargs = {
+        "user_agent": USER_AGENT,
+        "viewport": {"width": 1920, "height": 1080},
+        "locale": "ru-RU",
+        "timezone_id": "Asia/Tashkent",
+        "storage_state": storage_state,
+        "java_script_enabled": True,
+    }
+    if proxy_url:
+        # Playwright proxy spec: {server, username?, password?}
+        from urllib.parse import urlparse
+        u = urlparse(proxy_url)
+        proxy_spec = {"server": f"{u.scheme}://{u.hostname}:{u.port or 8080}"}
+        if u.username: proxy_spec["username"] = u.username
+        if u.password: proxy_spec["password"] = u.password
+        ctx_kwargs["proxy"] = proxy_spec
+        print(f"[scraper] proxy enabled: {u.hostname}:{u.port}", flush=True)
+
+    ctx = await browser.new_context(**ctx_kwargs)
     # Маскируем webdriver-флаг
     await ctx.add_init_script(
         "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"
