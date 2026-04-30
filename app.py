@@ -571,6 +571,63 @@ async def promo_debug(cid: int, seller_id: int, session: str = Cookie(default=No
     return JSONResponse(debug_ad_campaigns(client["api_key"], seller_id))
 
 
+@app.get("/shop/{cid}/promo/raw")
+async def promo_raw(cid: int, session: str = Cookie(default=None)):
+    """Возвращает сырой ответ cabinet API — нужен для диагностики структуры payload."""
+    import requests as _r
+    if not _auth(session):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    client = get_client(cid)
+    if not client:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+    seller_id = client.get("seller_id") if isinstance(client, dict) else None
+    try:
+        seller_id = client["seller_id"]
+    except (KeyError, TypeError):
+        pass
+    if not seller_id:
+        return JSONResponse({"error": "no_seller_id"})
+    tok = get_cabinet_token(int(seller_id))
+    if not tok or not tok.get("token"):
+        return JSONResponse({"error": "no_token"})
+
+    from datetime import datetime, timedelta
+    to_d = datetime.now().date()
+    from_d = to_d - timedelta(days=30)
+    headers = {
+        "Authorization": f"Bearer {tok['token']}",
+        "Accept": "application/json",
+        "Accept-Language": "ru",
+        "Origin": "https://seller.uzum.uz",
+        "Referer": "https://seller.uzum.uz/",
+    }
+    try:
+        r = _r.get(
+            "https://api-seller.uzum.uz/api/seller/advertising/management/ad-campaign",
+            headers=headers,
+            params={
+                "sellerId": int(seller_id),
+                "page": 0, "size": 20,
+                "from": from_d.isoformat(), "to": to_d.isoformat(),
+                "statusGroup": "ALL",
+            },
+            timeout=15,
+        )
+        body = None
+        try:
+            body = r.json()
+        except Exception:
+            body = r.text[:1000]
+        return JSONResponse({
+            "status": r.status_code,
+            "url": r.url,
+            "token_age": tok.get("updated_at"),
+            "body": body,
+        })
+    except Exception as e:
+        return JSONResponse({"error": str(e)})
+
+
 @app.post("/shop/{cid}/product/{pid}/audit")
 async def product_audit(cid: int, pid: str, session: str = Cookie(default=None)):
     import time as _t
