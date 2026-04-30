@@ -10,6 +10,7 @@
   "host_permissions": [
     "https://api-seller.uzum.uz/*",
     "https://seller.uzum.uz/*",
+    "https://fullsell.uz/*",
     "https://fullsell.onrender.com/*",
     "http://localhost:8000/*",
     "http://127.0.0.1:8000/*"
