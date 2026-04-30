@@ -310,11 +310,11 @@ async def shop_page(cid: int, request: Request, session: str = Cookie(default=No
                 if cabinet["campaigns"]:
                     try:
                         ids = [c.get("id") for c in cabinet["campaigns"] if c.get("id")]
-                        stats = get_ad_campaign_stats(tok["token"], ids, days=30) or {}
+                        ad_stats = get_ad_campaign_stats(tok["token"], ids, days=30) or {}
                         totals = {"impressions": 0, "clicks": 0, "expenses": 0,
                                   "revenue": 0, "sold_qty": 0, "atc": 0, "crr": 0}
                         for c in cabinet["campaigns"]:
-                            s = stats.get(str(c.get("id")), {}) or {}
+                            s = ad_stats.get(str(c.get("id")), {}) or {}
                             c["stats"] = s
                             for k in ("impressions", "clicks", "expenses", "revenue", "sold_qty", "atc"):
                                 try:
