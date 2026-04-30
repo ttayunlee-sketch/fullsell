@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FullSell Dashboard</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  body { background: #0f1117; color: #e2e8f0; font-family: 'Segoe UI', sans-serif; }
+  .sidebar { background: #1a1d27; width: 240px; min-height: 100vh; position: fixed; left: 0; top: 0; padding: 24px 16px; }
+  .main { margin-left: 240px; padding: 32px; }
+  .logo { font-size: 1.4rem; font-weight: 700; color: #fff; margin-bottom: 32px; display: flex; align-items: center; gap: 10px; }
+  .logo span { background: linear-gradient(135deg, #6366f1, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .nav-item a { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 8px; color: #94a3b8; text-decoration: none; margin-bottom: 4px; transition: all .2s; }
+  .nav-item a:hover, .nav-item a.active { background: #252836; color: #fff; }
+  .card { background: #1a1d27; border: 1px solid #252836; border-radius: 12px; padding: 20px; }
+  .stat-card { background: linear-gradient(135deg, #1a1d27, #252836); border: 1px solid #313449; border-radius: 12px; padding: 20px; }
+  .stat-value { font-size: 2rem; font-weight: 700; color: #fff; }
+  .stat-label { color: #64748b; font-size: .85rem; }
+  .badge-active { background: rgba(34,197,94,.15); color: #22c55e; padding: 3px 10px; border-radius: 20px; font-size: .78rem; }
+  .badge-arch { background: rgba(100,116,139,.15); color: #64748b; padding: 3px 10px; border-radius: 20px; font-size: .78rem; }
+  .badge-warn { background: rgba(234,179,8,.15); color: #eab308; padding: 3px 10px; border-radius: 20px; font-size: .78rem; }
+  .client-row { background: #1a1d27; border: 1px solid #252836; border-radius: 10px; padding: 16px 20px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; transition: border-color .2s; }
+  .client-row:hover { border-color: #6366f1; cursor: pointer; }
+  .client-name { font-weight: 600; color: #fff; }
+  .client-meta { color: #64748b; font-size: .82rem; margin-top: 2px; }
+  .rank-a { color: #22c55e; font-weight: 700; }
+  .rank-b { color: #3b82f6; font-weight: 700; }
+  .rank-d { color: #64748b; font-weight: 700; }
+  table thead th { background: #252836; color: #94a3b8; font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; border: none; padding: 12px 16px; }
+  table tbody td { background: #1a1d27; border-color: #252836; padding: 12px 16px; vertical-align: middle; }
+  table tbody tr:hover td { background: #252836; }
+  .btn-primary { background: linear-gradient(135deg, #6366f1, #8b5cf6); border: none; border-radius: 8px; padding: 8px 20px; }
+  .btn-primary:hover { opacity: .9; }
+  .section { display: none; }
+  .section.active { display: block; }
+  .page-title { font-size: 1.4rem; font-weight: 700; color: #fff; margin-bottom: 4px; }
+  .page-sub { color: #64748b; font-size: .9rem; margin-bottom: 28px; }
+  .alert-item { background: #1a1d27; border-left: 3px solid #6366f1; border-radius: 0 8px 8px 0; padding: 12px 16px; margin-bottom: 8px; }
+  .alert-up { border-left-color: #22c55e; }
+  .alert-down { border-left-color: #ef4444; }
+  canvas { max-height: 220px; }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="logo">FS <span>FullSell</span></div>
+  <ul class="nav flex-column nav-item">
+    <li class="nav-item"><a href="#" onclick="show('clients')" class="active" id="nav-clients">🏪 Клиенты</a></li>
+    <li class="nav-item"><a href="#" onclick="show('shop')" id="nav-shop">📦 Магазин</a></li>
+    <li class="nav-item"><a href="#" onclick="show('analytics')" id="nav-analytics">📊 Аналитика</a></li>
+    <li class="nav-item"><a href="#" onclick="show('alerts')" id="nav-alerts">🔔 Алерты</a></li>
+  </ul>
+  <div style="position:absolute;bottom:24px;left:16px;right:16px;">
+    <div style="background:#252836;border-radius:8px;padding:12px 14px;font-size:.82rem;color:#64748b;">
+      🟢 Мониторинг активен<br>
+      <span style="color:#94a3b8;">Последняя проверка: 2 мин назад</span>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- CLIENTS -->
+  <div class="section active" id="sec-clients">
+    <div class="page-title">Клиенты FullSell</div>
+    <div class="page-sub">Список подключённых магазинов UZUM</div>
+    <div class="d-flex justify-content-end mb-3">
+      <button class="btn btn-primary btn-sm">+ Добавить магазин</button>
+    </div>
+    <div class="client-row" onclick="show('shop')">
+      <div>
+        <div class="client-name">procosmetics.uz</div>
+        <div class="client-meta">Shop ID: 110091 · 5 товаров · добавлен 15.04.2026</div>
+      </div>
+      <div class="d-flex align-items-center gap-3">
+        <span class="badge-active">Активен</span>
+        <span style="color:#94a3b8;font-size:.85rem;">4 124 просмотра</span>
+        <span style="color:#6366f1;">→</span>
+      </div>
+    </div>
+    <div class="client-row">
+      <div>
+        <div class="client-name">beauty_store_uz</div>
+        <div class="client-meta">Shop ID: 110205 · 12 товаров · добавлен 20.04.2026</div>
+      </div>
+      <div class="d-flex align-items-center gap-3">
+        <span class="badge-active">Активен</span>
+        <span style="color:#94a3b8;font-size:.85rem;">9 870 просмотров</span>
+        <span style="color:#6366f1;">→</span>
+      </div>
+    </div>
+    <div class="client-row">
+      <div>
+        <div class="client-name">koreyskaya_kosmetika</div>
+        <div class="client-meta">Shop ID: 110389 · 8 товаров · добавлен 25.04.2026</div>
+      </div>
+      <div class="d-flex align-items-center gap-3">
+        <span class="badge-warn">Нет данных</span>
+        <span style="color:#94a3b8;font-size:.85rem;">—</span>
+        <span style="color:#6366f1;">→</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SHOP -->
+  <div class="section" id="sec-shop">
+    <div class="page-title">procosmetics.uz</div>
+    <div class="page-sub">Shop ID: 110091 · Косметика · обновлено 5 мин назад</div>
+    <div class="row g-3 mb-4">
+      <div class="col-md-3"><div class="stat-card"><div class="stat-value">5</div><div class="stat-label">Товаров</div></div></div>
+      <div class="col-md-3"><div class="stat-card"><div class="stat-value">4 124</div><div class="stat-label">Просмотров</div></div></div>
+      <div class="col-md-3"><div class="stat-card"><div class="stat-value">4.6 ⭐</div><div class="stat-label">Средний рейтинг</div></div></div>
+      <div class="col-md-3"><div class="stat-card"><div class="stat-value">243</div><div class="stat-label">Остаток FBS</div></div></div>
+    </div>
+    <div class="card">
+      <table class="table table-borderless mb-0">
+        <thead><tr><th>Товар</th><th>Цена</th><th>Рейтинг</th><th>Просмотры</th><th>Остаток</th><th>Ранг</th><th>Статус</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="color:#fff;max-width:220px;">Nexcare Koreya husnbuzar patchlari</td>
+            <td>45 900 сум</td>
+            <td>⭐ 4.8</td>
+            <td>👁 1 204</td>
+            <td>📦 87 шт</td>
+            <td><span class="rank-a">A</span></td>
+            <td><span class="badge-active">Активен</span></td>
+          </tr>
+          <tr>
+            <td style="color:#fff;max-width:220px;">Anua 10+ yorituvchi serum</td>
+            <td>189 000 сум</td>
+            <td>⭐ 4.7</td>
+            <td>👁 980</td>
+            <td>📦 34 шт</td>
+            <td><span class="rank-a">A</span></td>
+            <td><span class="badge-active">Активен</span></td>
+          </tr>
+          <tr>
+            <td style="color:#fff;max-width:220px;">Toner krem barer CELIMAX 150ml</td>
+            <td>156 000 сум</td>
+            <td>⭐ 4.5</td>
+            <td>👁 712</td>
+            <td>📦 52 шт</td>
+            <td><span class="rank-b">B</span></td>
+            <td><span class="badge-active">Активен</span></td>
+          </tr>
+          <tr>
+            <td style="color:#fff;max-width:220px;">COSRX Advanced Snail 96 Mucin</td>
+            <td>210 000 сум</td>
+            <td>⭐ 4.9</td>
+            <td>👁 890</td>
+            <td>📦 12 шт</td>
+            <td><span class="rank-a">A</span></td>
+            <td><span class="badge-warn">Мало остатков</span></td>
+          </tr>
+          <tr>
+            <td style="color:#fff;max-width:220px;">Some By Mi AHA BHA PHA Toner</td>
+            <td>98 000 сум</td>
+            <td>⭐ 4.3</td>
+            <td>👁 338</td>
+            <td>📦 58 шт</td>
+            <td><span class="rank-d">D</span></td>
+            <td><span class="badge-arch">Нет данных</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ANALYTICS -->
+  <div class="section" id="sec-analytics">
+    <div class="page-title">Аналитика</div>
+    <div class="page-sub">procosmetics.uz · последние 7 дней</div>
+    <div class="row g-3">
+      <div class="col-md-6">
+        <div class="card">
+          <div style="color:#94a3b8;font-size:.85rem;margin-bottom:12px;">📈 Просмотры по дням</div>
+          <canvas id="viewsChart"></canvas>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card">
+          <div style="color:#94a3b8;font-size:.85rem;margin-bottom:12px;">⭐ Рейтинг по дням</div>
+          <canvas id="ratingChart"></canvas>
+        </div>
+      </div>
+      <div class="col-12">
+        <div class="card">
+          <div style="color:#94a3b8;font-size:.85rem;margin-bottom:12px;">📦 Остатки FBS</div>
+          <canvas id="stockChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ALERTS -->
+  <div class="section" id="sec-alerts">
+    <div class="page-title">Алерты</div>
+    <div class="page-sub">История изменений позиций</div>
+    <div class="alert-item alert-up"><div style="color:#22c55e;font-size:.8rem;">28.04.2026 · 14:30</div><div style="color:#fff;">📈 <b>Nexcare patchlari</b> — просмотры выросли: 890 → 1 204 (+35%)</div></div>
+    <div class="alert-item alert-down"><div style="color:#ef4444;font-size:.8rem;">28.04.2026 · 10:00</div><div style="color:#fff;">📉 <b>Some By Mi Toner</b> — просмотры упали: 520 → 338 (-35%)</div></div>
+    <div class="alert-item alert-up"><div style="color:#22c55e;font-size:.8rem;">27.04.2026 · 18:00</div><div style="color:#fff;">📈 <b>COSRX Snail</b> — просмотры выросли: 610 → 890 (+46%)</div></div>
+    <div class="alert-item" style="border-left-color:#eab308;"><div style="color:#eab308;font-size:.8rem;">27.04.2026 · 09:00</div><div style="color:#fff;">⚠️ <b>COSRX Snail</b> — остаток FBS мало: 12 шт</div></div>
+    <div class="alert-item alert-up"><div style="color:#22c55e;font-size:.8rem;">26.04.2026 · 16:00</div><div style="color:#fff;">📈 <b>Anua serum</b> — просмотры выросли: 740 → 980 (+32%)</div></div>
+  </div>
+
+</div>
+
+<script>
+function show(page) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item a').forEach(a => a.classList.remove('active'));
+  document.getElementById('sec-' + page).classList.add('active');
+  document.getElementById('nav-' + page).classList.add('active');
+}
+
+const chartOpts = {
+  responsive: true,
+  plugins: { legend: { display: false } },
+  scales: {
+    x: { ticks: { color: '#64748b' }, grid: { color: '#252836' } },
+    y: { ticks: { color: '#64748b' }, grid: { color: '#252836' } }
+  }
+};
+
+new Chart(document.getElementById('viewsChart'), {
+  type: 'line',
+  data: {
+    labels: ['22.04','23.04','24.04','25.04','26.04','27.04','28.04'],
+    datasets: [{ data: [2800,3100,2950,3400,3700,3900,4124], borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,.1)', tension: .4, fill: true }]
+  }, options: chartOpts
+});
+
+new Chart(document.getElementById('ratingChart'), {
+  type: 'line',
+  data: {
+    labels: ['22.04','23.04','24.04','25.04','26.04','27.04','28.04'],
+    datasets: [{ data: [4.4,4.5,4.5,4.6,4.6,4.6,4.6], borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,.1)', tension: .4, fill: true }]
+  }, options: chartOpts
+});
+
+new Chart(document.getElementById('stockChart'), {
+  type: 'bar',
+  data: {
+    labels: ['Nexcare','Anua serum','CELIMAX','COSRX','Some By Mi'],
+    datasets: [{ data: [87,34,52,12,58], backgroundColor: ['#6366f1','#6366f1','#6366f1','#ef4444','#6366f1'], borderRadius: 6 }]
+  }, options: { ...chartOpts, plugins: { legend: { display: false } } }
+});
+</script>
+</body>
+</html>

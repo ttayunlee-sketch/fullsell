@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "FullSell Connector",
+  "description": "Передаёт токен сессии UZUM Seller в FullSell для подтягивания рекламных данных",
+  "version": "1.0.0",
+  "permissions": [
+    "webRequest",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://api-seller.uzum.uz/*",
+    "https://seller.uzum.uz/*",
+    "https://fullsell.onrender.com/*",
+    "http://localhost:8000/*",
+    "http://127.0.0.1:8000/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "FullSell Connector"
+  }
+}

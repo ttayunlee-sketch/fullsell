@@ -305,6 +305,104 @@
 
 <!-- ── ПРОДВИЖЕНИЕ ────────────────────────────────────────────────────────── -->
 <div id="tab-promo" style="display:none;padding-top:20px;">
+
+  {# === Реальные данные кабинета UZUM (через Chrome-расширение) === #}
+  {% if not seller_id %}
+    <div class="card-dark mb-3" style="border-left:3px solid #fbbf24;">
+      <div style="color:#fff;font-weight:600;margin-bottom:6px;">⚙️ Чтобы видеть рекламные кампании — укажи Seller ID</div>
+      <div style="color:#cbd5e1;font-size:.85rem;margin-bottom:12px;">
+        Это число из URL кабинета: <span style="color:#a5b4fc;">seller.uzum.uz/seller/<b>406356</b>/...</span>
+      </div>
+      <form method="post" action="/clients/{{ client.id }}/seller-id" style="display:flex;gap:8px;max-width:420px;">
+        <input type="number" name="seller_id" class="form-control" placeholder="Например: 406356" required>
+        <button type="submit" class="btn btn-primary btn-sm" style="white-space:nowrap;">Сохранить</button>
+      </form>
+    </div>
+  {% elif not cabinet.has_token %}
+    <div class="card-dark mb-3" style="border-left:3px solid #60a5fa;">
+      <div style="color:#fff;font-weight:600;margin-bottom:6px;">🔌 Установи Chrome-расширение FullSell Connector</div>
+      <div style="color:#cbd5e1;font-size:.86rem;line-height:1.7;margin-bottom:10px;">
+        Расширение перехватывает токен сессии UZUM-кабинета и автоматически передаёт его в FullSell —
+        тогда здесь появятся реальные рекламные кампании, бюджеты, ДРР, CPC и продажи с рекламы.
+        <br><br>
+        <b>Как установить:</b><br>
+        1. Скачай папку <code>extension/</code> из <a href="https://github.com/ttayunlee-sketch/fullsell/tree/main/extension" target="_blank" style="color:#a5b4fc;">репозитория FullSell</a><br>
+        2. В Chrome открой <code>chrome://extensions/</code> → включи <b>Режим разработчика</b><br>
+        3. Нажми <b>Загрузить распакованное</b> → выбери папку <code>extension/</code><br>
+        4. Кликни на иконку расширения → впиши <b>Connector Secret</b> (тот же что DASHBOARD_PASSWORD на Render) → Сохранить<br>
+        5. Открой <a href="https://seller.uzum.uz/seller/{{ seller_id }}/real-time-promotion/ad-campaign" target="_blank" style="color:#a5b4fc;">кабинет UZUM → Продвижение</a> — расширение отправит токен сюда<br>
+        6. Обнови эту страницу — появятся данные
+      </div>
+      <div style="color:#94a3b8;font-size:.78rem;">Seller ID: {{ seller_id }} · токен ещё не получен</div>
+    </div>
+  {% elif cabinet.error == 'unauthorized' %}
+    <div class="card-dark mb-3" style="border-left:3px solid #f87171;">
+      <div style="color:#fca5a5;font-weight:600;">⚠ Токен кабинета истёк</div>
+      <div style="color:#cbd5e1;font-size:.85rem;margin-top:6px;">
+        Открой кабинет UZUM в Chrome (с включённым FullSell Connector) — расширение получит свежий токен.
+      </div>
+    </div>
+  {% elif cabinet.campaigns %}
+    <div class="card-dark mb-3">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
+        <div>
+          <div style="color:#fff;font-weight:600;font-size:.95rem;">📢 Рекламные кампании UZUM (Буст в ТОП)</div>
+          <div style="color:#cbd5e1;font-size:.78rem;margin-top:2px;">Реальные данные кабинета · обновлено {{ cabinet.token_age }}</div>
+        </div>
+        <span class="badge-ok">{{ cabinet.campaigns|length }} кампаний</span>
+      </div>
+      <div class="table-wrap">
+        <table class="table table-borderless mb-0 fs-table">
+          <thead>
+            <tr>
+              <th>Кампания</th>
+              <th>Период</th>
+              <th>Статус</th>
+              <th>Бюджет</th>
+              <th>Остаток</th>
+              <th>Показы</th>
+              <th>Клики</th>
+              <th>Продажи</th>
+              <th>Выручка</th>
+              <th>ДРР</th>
+              <th>Траты</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for camp in cabinet.campaigns %}
+            {% set st = camp.get('status', {}) %}
+            {% set status = st.value if st is mapping else (camp.get('status') or '—') %}
+            <tr>
+              <td class="product-name">{{ camp.get('name') or camp.get('title') or '—' }}<div style="color:#94a3b8;font-size:.72rem;margin-top:2px;">ID: {{ camp.get('id') }}</div></td>
+              <td style="color:#cbd5e1;font-size:.82rem;white-space:nowrap;">{{ camp.get('startDate', camp.get('from','—'))[:10] }}<br>{{ camp.get('endDate', camp.get('to','—'))[:10] }}</td>
+              <td>
+                {% if status in ('ACTIVE','RUNNING') %}<span class="badge-ok">Активна</span>
+                {% elif status in ('FINISHED','COMPLETED','ENDED') %}<span class="badge-off">Завершена</span>
+                {% elif status == 'PAUSED' %}<span class="badge-warn">Пауза</span>
+                {% else %}<span class="badge-off">{{ status }}</span>{% endif %}
+              </td>
+              <td style="color:#fff;font-weight:500;white-space:nowrap;">{{ "{:,}".format((camp.get('budget') or 0)|int) }}</td>
+              <td style="color:#cbd5e1;white-space:nowrap;">{{ "{:,}".format((camp.get('remainingBudget') or camp.get('balance') or 0)|int) }}</td>
+              <td>{{ "{:,}".format(camp.get('impressions', 0) or 0) }}</td>
+              <td>{{ "{:,}".format(camp.get('clicks', 0) or 0) }}</td>
+              <td>{{ camp.get('sales', 0) or 0 }}</td>
+              <td style="color:#86efac;white-space:nowrap;">{{ "{:,}".format((camp.get('revenue') or camp.get('revenueAmount') or 0)|int) }}</td>
+              <td>{{ camp.get('drr', camp.get('acos', '—')) }}{% if camp.get('drr') is not none %}%{% endif %}</td>
+              <td style="color:#fca5a5;white-space:nowrap;">{{ "{:,}".format((camp.get('spent') or camp.get('expense') or 0)|int) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% else %}
+    <div class="card-dark mb-3" style="border-left:3px solid #94a3b8;">
+      <div style="color:#cbd5e1;">Кампании не найдены за последние 30 дней. {% if cabinet.error %}<span style="color:#fca5a5;">(ошибка: {{ cabinet.error }})</span>{% endif %}</div>
+    </div>
+  {% endif %}
+
+  {# === Ниже идёт сегментация и AI стратегия (работают всегда) === #}
+
   {# helper macro для карточки сегмента #}
   {% macro seg_card(items, title, sub, color, action_label) -%}
     <div class="card-dark mb-3">

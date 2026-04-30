@@ -48,6 +48,119 @@ def invalidate_cache(shop_id: int = None):
                 _CACHE.pop(k, None)
 
 
+CABINET_BASE = "https://api-seller.uzum.uz"
+
+
+def _cabinet_headers(token: str) -> dict:
+    return {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json",
+        "Accept-Language": "ru",
+        "Origin": "https://seller.uzum.uz",
+        "Referer": "https://seller.uzum.uz/",
+    }
+
+
+def get_ad_campaigns(cabinet_token: str, seller_id: int, days: int = 30) -> dict:
+    """Список рекламных кампаний 'Буст в ТОП' из cabinet API."""
+    if not cabinet_token or not seller_id:
+        return {"items": [], "error": "no_token"}
+    from datetime import datetime, timedelta
+    to_d = datetime.now().date()
+    from_d = to_d - timedelta(days=days)
+    items = []
+    page = 0
+    error = None
+    while page < 20:
+        try:
+            r = requests.get(
+                f"{CABINET_BASE}/api/seller/advertising/management/ad-campaign",
+                headers=_cabinet_headers(cabinet_token),
+                params={
+                    "sellerId": seller_id,
+                    "page": page, "size": 50,
+                    "from": from_d.isoformat(), "to": to_d.isoformat(),
+                    "statusGroup": "ALL",
+                },
+                timeout=15,
+            )
+            if r.status_code == 401:
+                error = "unauthorized"
+                break
+            if r.status_code != 200:
+                error = f"http_{r.status_code}"
+                break
+            data = r.json() if r.content else {}
+            payload = data.get("payload") if isinstance(data, dict) else None
+            content = []
+            if isinstance(payload, dict):
+                content = payload.get("content") or payload.get("items") or []
+            elif isinstance(data, dict):
+                content = data.get("content") or data.get("items") or []
+            elif isinstance(data, list):
+                content = data
+            if not content:
+                break
+            items.extend(content)
+            total = 0
+            if isinstance(payload, dict):
+                total = payload.get("totalElements") or payload.get("total") or 0
+            elif isinstance(data, dict):
+                total = data.get("totalElements") or 0
+            if len(content) < 50 or (total and len(items) >= total):
+                break
+            page += 1
+        except Exception as e:
+            error = f"exception: {e}"
+            break
+    return {"items": items, "error": error}
+
+
+def get_boost_orders_products(cabinet_token: str, seller_id: int, days: int = 30) -> dict:
+    """Список товаров с настройками 'Буст заказов'."""
+    if not cabinet_token or not seller_id:
+        return {"items": [], "error": "no_token"}
+    from datetime import datetime, timedelta
+    to_d = datetime.now().date()
+    from_d = to_d - timedelta(days=days)
+    # Эндпоинт пока не подтверждён — пробуем несколько паттернов
+    candidate_urls = [
+        f"{CABINET_BASE}/api/seller/advertising/management/cpo",
+        f"{CABINET_BASE}/api/seller/advertising/management/boost-orders",
+        f"{CABINET_BASE}/api/seller/advertising/cpo/products",
+    ]
+    error = None
+    for url in candidate_urls:
+        try:
+            r = requests.get(
+                url,
+                headers=_cabinet_headers(cabinet_token),
+                params={
+                    "sellerId": seller_id,
+                    "page": 0, "size": 100,
+                    "from": from_d.isoformat(), "to": to_d.isoformat(),
+                },
+                timeout=15,
+            )
+            if r.status_code == 200:
+                data = r.json() if r.content else {}
+                payload = data.get("payload") if isinstance(data, dict) else None
+                content = []
+                if isinstance(payload, dict):
+                    content = payload.get("content") or payload.get("items") or []
+                elif isinstance(data, list):
+                    content = data
+                return {"items": content, "error": None, "endpoint": url}
+            elif r.status_code == 401:
+                error = "unauthorized"
+                break
+            else:
+                error = f"http_{r.status_code}"
+        except Exception as e:
+            error = f"exception: {e}"
+    return {"items": [], "error": error or "endpoint_not_found"}
+
+
 def debug_ad_campaigns(api_key: str, seller_id: int, days: int = 30) -> dict:
     """Пробует получить рекламные кампании через cabinet-API с разными форматами auth."""
     from datetime import datetime, timedelta

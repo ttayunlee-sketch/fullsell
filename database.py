@@ -54,6 +54,19 @@ def init_db():
                 added_at TEXT NOT NULL
             )
         """)
+        # миграция: seller_id (для cabinet API)
+        try:
+            c.execute("ALTER TABLE clients ADD COLUMN seller_id INTEGER")
+            conn.commit()
+        except Exception:
+            conn.rollback() if DATABASE_URL else None  # SQLite не нуждается, postgres откатит "duplicate column"
+        c.execute(f"""
+            CREATE TABLE IF NOT EXISTS cabinet_tokens (
+                seller_id   INTEGER PRIMARY KEY,
+                token       TEXT NOT NULL,
+                updated_at  TEXT NOT NULL
+            )
+        """)
         c.execute(f"""
             CREATE TABLE IF NOT EXISTS alerts (
                 id         {_SERIAL} PRIMARY KEY {_AUTOINCREMENT},
@@ -114,15 +127,59 @@ def get_client(client_id: int):
         conn.close()
 
 
-def add_client(name: str, shop_id: int, api_key: str):
+def add_client(name: str, shop_id: int, api_key: str, seller_id: int = None):
     conn = _get_conn()
     try:
         c = _cur(conn)
         c.execute(
-            f"INSERT INTO clients (name, shop_id, api_key, added_at) VALUES ({_PH},{_PH},{_PH},{_PH})",
-            (name, shop_id, api_key, datetime.now().strftime("%d.%m.%Y"))
+            f"INSERT INTO clients (name, shop_id, api_key, added_at, seller_id) VALUES ({_PH},{_PH},{_PH},{_PH},{_PH})",
+            (name, shop_id, api_key, datetime.now().strftime("%d.%m.%Y"), seller_id)
         )
         conn.commit()
+    finally:
+        conn.close()
+
+
+def update_client_seller_id(client_id: int, seller_id: int):
+    conn = _get_conn()
+    try:
+        c = _cur(conn)
+        c.execute(f"UPDATE clients SET seller_id={_PH} WHERE id={_PH}", (seller_id, client_id))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def save_cabinet_token(seller_id: int, token: str):
+    conn = _get_conn()
+    try:
+        c = _cur(conn)
+        now_str = datetime.now().strftime("%d.%m.%Y %H:%M")
+        if DATABASE_URL:
+            c.execute(
+                f"INSERT INTO cabinet_tokens (seller_id, token, updated_at) VALUES ({_PH},{_PH},{_PH}) "
+                f"ON CONFLICT (seller_id) DO UPDATE SET token=EXCLUDED.token, updated_at=EXCLUDED.updated_at",
+                (seller_id, token, now_str)
+            )
+        else:
+            c.execute(
+                f"INSERT OR REPLACE INTO cabinet_tokens (seller_id, token, updated_at) VALUES ({_PH},{_PH},{_PH})",
+                (seller_id, token, now_str)
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_cabinet_token(seller_id: int):
+    if not seller_id:
+        return None
+    conn = _get_conn()
+    try:
+        c = _dict_cur(conn)
+        c.execute(f"SELECT * FROM cabinet_tokens WHERE seller_id={_PH}", (seller_id,))
+        row = c.fetchone()
+        return dict(row) if row else None
     finally:
         conn.close()
 

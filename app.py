@@ -10,8 +10,13 @@ from jinja2 import Environment, FileSystemLoader
 from database import (
     init_db, get_clients, get_client, add_client, delete_client,
     get_alerts, add_alert, save_snapshots_batch, last_snapshot_age_minutes,
+    update_client_seller_id, save_cabinet_token, get_cabinet_token,
 )
-from uzum import get_products, test_connection, get_finance_orders, get_finance_expenses, debug_finance_orders, debug_ad_campaigns
+from uzum import (
+    get_products, test_connection, get_finance_orders, get_finance_expenses,
+    debug_finance_orders, debug_ad_campaigns,
+    get_ad_campaigns, get_boost_orders_products,
+)
 from ai import ask as ai_ask, audit_product, promotion_strategy
 
 _AUDIT_CACHE = {}  # (shop_id, product_id) -> (timestamp, text)
@@ -163,8 +168,9 @@ _jinja_env = Environment(
 )
 templates = Jinja2Templates(env=_jinja_env)
 
-PASSWORD   = os.environ.get("DASHBOARD_PASSWORD", "fullsell2026")
-SECRET_KEY = os.environ.get("SECRET_KEY", "fs-secret-change-me")
+PASSWORD         = os.environ.get("DASHBOARD_PASSWORD", "fullsell2026")
+SECRET_KEY       = os.environ.get("SECRET_KEY", "fs-secret-change-me")
+CONNECTOR_SECRET = os.environ.get("CONNECTOR_SECRET", "")  # секрет для расширения; если пусто — берём DASHBOARD_PASSWORD
 
 def _token():
     return hashlib.sha256(f"{SECRET_KEY}:ok".encode()).hexdigest()
@@ -266,13 +272,32 @@ async def shop_page(cid: int, request: Request, session: str = Cookie(default=No
     finance = _finance_summary(orders_raw, products)
     promo = _promotion_segments(products, finance.get("by_pid") or {})
 
+    # Cabinet API: реклама (если есть seller_id и токен)
+    seller_id = client.get("seller_id") if isinstance(client, dict) else None
+    if not seller_id:
+        try:
+            seller_id = client["seller_id"]
+        except (KeyError, TypeError):
+            seller_id = None
+    cabinet = {"has_token": False, "campaigns": [], "error": None, "token_age": None}
+    if seller_id:
+        tok = get_cabinet_token(int(seller_id))
+        if tok and tok.get("token"):
+            cabinet["has_token"] = True
+            cabinet["token_age"] = tok.get("updated_at")
+            res = get_ad_campaigns(tok["token"], int(seller_id), days=30)
+            cabinet["campaigns"] = res.get("items") or []
+            cabinet["error"] = res.get("error")
+
     return templates.TemplateResponse(request, "shop.html", {
-        "client":   client,
-        "products": products,
-        "alerts":   get_alerts(client["shop_id"]),
-        "stats":    stats,
-        "finance":  finance,
-        "promo":    promo,
+        "client":    client,
+        "products":  products,
+        "alerts":    get_alerts(client["shop_id"]),
+        "stats":     stats,
+        "finance":   finance,
+        "promo":     promo,
+        "seller_id": seller_id,
+        "cabinet":   cabinet,
     })
 
 
@@ -498,6 +523,32 @@ async def promo_strategy(cid: int, session: str = Cookie(default=None)):
     text = promotion_strategy(dict(client), products, finance, segments)
     _PROMO_AI_CACHE[client["shop_id"]] = (_t.time(), text)
     return JSONResponse({"strategy": text, "cached": False})
+
+
+class ExtTokenBody(BaseModel):
+    token: str
+    sellerId: int
+    secret: str
+
+
+@app.post("/api/extension/token")
+async def extension_token(body: ExtTokenBody):
+    """Принимает токен сессии кабинета от Chrome-расширения. Авторизация — connector secret."""
+    expected = CONNECTOR_SECRET or PASSWORD
+    if not expected or body.secret != expected:
+        return JSONResponse({"error": "Forbidden"}, status_code=403)
+    if not body.token or len(body.token) < 10 or not body.sellerId:
+        return JSONResponse({"error": "Invalid token/sellerId"}, status_code=400)
+    save_cabinet_token(body.sellerId, body.token)
+    return JSONResponse({"ok": True, "sellerId": body.sellerId})
+
+
+@app.post("/clients/{cid}/seller-id")
+async def set_seller_id(cid: int, seller_id: int = Form(...), session: str = Cookie(default=None)):
+    if not _auth(session):
+        return RedirectResponse("/login")
+    update_client_seller_id(cid, seller_id)
+    return RedirectResponse(f"/shop/{cid}", status_code=303)
 
 
 @app.get("/shop/{cid}/finance/debug")
