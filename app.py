@@ -600,6 +600,35 @@ async def set_seller_id(cid: int, seller_id: int = Form(...), session: str = Coo
     return RedirectResponse(f"/shop/{cid}", status_code=303)
 
 
+@app.post("/clients/{cid}/cabinet-token")
+async def set_cabinet_token_manual(
+    cid: int,
+    token: str = Form(...),
+    session: str = Cookie(default=None),
+):
+    """Ручной ввод токена кабинета — без расширения."""
+    if not _auth(session):
+        return RedirectResponse("/login")
+    client = get_client(cid)
+    if not client:
+        return RedirectResponse("/clients")
+    seller_id = None
+    try:
+        seller_id = client["seller_id"]
+    except (KeyError, TypeError):
+        pass
+    if not seller_id:
+        return RedirectResponse(f"/shop/{cid}", status_code=303)
+    # Чистим: убираем Bearer prefix, кавычки, пробелы
+    token = token.strip().strip('"').strip("'")
+    if token.lower().startswith("bearer "):
+        token = token[7:].strip()
+    if len(token) < 10:
+        return RedirectResponse(f"/shop/{cid}", status_code=303)
+    save_cabinet_token(int(seller_id), token)
+    return RedirectResponse(f"/shop/{cid}", status_code=303)
+
+
 @app.get("/shop/{cid}/finance/debug")
 async def finance_debug(cid: int, session: str = Cookie(default=None)):
     if not _auth(session):

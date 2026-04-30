@@ -320,20 +320,40 @@
     </div>
   {% elif not cabinet.has_token %}
     <div class="card-dark mb-3" style="border-left:3px solid #60a5fa;">
-      <div style="color:#fff;font-weight:600;margin-bottom:6px;">🔌 Установи Chrome-расширение FullSell Connector</div>
-      <div style="color:#cbd5e1;font-size:.86rem;line-height:1.7;margin-bottom:10px;">
-        Расширение перехватывает токен сессии UZUM-кабинета и автоматически передаёт его в FullSell —
-        тогда здесь появятся реальные рекламные кампании, бюджеты, ДРР, CPC и продажи с рекламы.
-        <br><br>
-        <b>Как установить:</b><br>
-        1. Скачай папку <code>extension/</code> из <a href="https://github.com/ttayunlee-sketch/fullsell/tree/main/extension" target="_blank" style="color:#a5b4fc;">репозитория FullSell</a><br>
-        2. В Chrome открой <code>chrome://extensions/</code> → включи <b>Режим разработчика</b><br>
-        3. Нажми <b>Загрузить распакованное</b> → выбери папку <code>extension/</code><br>
-        4. Кликни на иконку расширения → впиши <b>Connector Secret</b> (тот же что DASHBOARD_PASSWORD на Render) → Сохранить<br>
-        5. Открой <a href="https://seller.uzum.uz/seller/{{ seller_id }}/real-time-promotion/ad-campaign" target="_blank" style="color:#a5b4fc;">кабинет UZUM → Продвижение</a> — расширение отправит токен сюда<br>
-        6. Обнови эту страницу — появятся данные
+      <div style="color:#fff;font-weight:600;margin-bottom:6px;">🔑 Подключи кабинет UZUM</div>
+      <div style="color:#cbd5e1;font-size:.86rem;line-height:1.7;margin-bottom:14px;">
+        Чтобы видеть рекламные кампании — нужен токен сессии из твоего UZUM-кабинета.
       </div>
-      <div style="color:#94a3b8;font-size:.78rem;">Seller ID: {{ seller_id }} · токен ещё не получен</div>
+
+      <div style="background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;">
+        <div style="color:#fff;font-weight:600;margin-bottom:8px;">📋 Способ 1 — Вставить токен вручную (проще)</div>
+        <ol style="color:#cbd5e1;font-size:.85rem;line-height:1.8;padding-left:22px;margin:0 0 10px 0;">
+          <li>Открой <a href="https://seller.uzum.uz/seller/{{ seller_id }}/real-time-promotion/ad-campaign" target="_blank" style="color:#a5b4fc;">кабинет UZUM → Продвижение</a></li>
+          <li>Нажми <b>F12</b> → вкладка <b>Network</b> (Сеть)</li>
+          <li>Обнови страницу <b>F5</b></li>
+          <li>В списке найди запрос <code>ad-campaign?...</code> → клик на него</li>
+          <li>Справа в <b>Headers</b> найди строку <b>authorization:</b></li>
+          <li>Скопируй значение (длинная строка, например <code>Bearer abc123...</code>) и вставь сюда:</li>
+        </ol>
+        <form method="post" action="/clients/{{ client.id }}/cabinet-token" style="display:flex;gap:8px;flex-wrap:wrap;">
+          <input type="text" name="token" placeholder="Bearer 9ZTtTnt2aR9whDWFctScAPqdlS8" required
+                 style="flex:1;min-width:280px;background:var(--card);border:1px solid var(--border2);color:#fff;border-radius:8px;padding:8px 12px;font-size:.85rem;font-family:monospace;">
+          <button type="submit" class="btn btn-primary btn-sm">Сохранить токен</button>
+        </form>
+        <div style="color:#94a3b8;font-size:.76rem;margin-top:6px;">Токен живёт несколько часов. Когда истечёт — повтори процедуру.</div>
+      </div>
+
+      <details style="background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:14px;">
+        <summary style="color:#fff;font-weight:600;cursor:pointer;">🔌 Способ 2 — Chrome-расширение (автоматически)</summary>
+        <div style="color:#cbd5e1;font-size:.85rem;line-height:1.7;margin-top:10px;">
+          1. Скачай папку <code>extension/</code> из <a href="https://github.com/ttayunlee-sketch/fullsell/tree/main/extension" target="_blank" style="color:#a5b4fc;">репозитория FullSell</a><br>
+          2. В Chrome открой <code>chrome://extensions/</code> → включи <b>Режим разработчика</b><br>
+          3. Нажми <b>Загрузить распакованное</b> → выбери папку <code>extension/</code><br>
+          4. Кликни на иконку → впиши URL <code>https://fullsell.uz</code> и Secret из .env → Сохранить<br>
+          5. Открой кабинет UZUM — расширение само пошлёт токен
+        </div>
+      </details>
+      <div style="color:#94a3b8;font-size:.78rem;margin-top:10px;">Seller ID: {{ seller_id }} · токен ещё не получен</div>
     </div>
   {% elif cabinet.error == 'unauthorized' %}
     <div class="card-dark mb-3" style="border-left:3px solid #f87171;">
