@@ -344,13 +344,18 @@
     </div>
   {% elif cabinet.campaigns %}
     {# Итоги по всем кампаниям #}
-    {% if cabinet.totals.expenses or cabinet.totals.impressions %}
+    {% set t_imp = cabinet.totals.get('impressions', 0) if cabinet.totals else 0 %}
+    {% set t_clk = cabinet.totals.get('clicks', 0) if cabinet.totals else 0 %}
+    {% set t_exp = cabinet.totals.get('expenses', 0) if cabinet.totals else 0 %}
+    {% set t_rev = cabinet.totals.get('revenue', 0) if cabinet.totals else 0 %}
+    {% set t_crr = cabinet.totals.get('crr', 0) if cabinet.totals else 0 %}
+    {% if t_exp or t_imp %}
     <div class="row g-3 mb-3">
       <div class="col-6 col-md-3">
         <div class="stat">
           <div class="stat-accent" style="background:linear-gradient(90deg,#a5b4fc,#c4b5fd);"></div>
           <span class="stat-icon">👁</span>
-          <div class="stat-val">{{ "{:,}".format(cabinet.totals.impressions) }}</div>
+          <div class="stat-val">{{ "{:,}".format(t_imp) }}</div>
           <div class="stat-lbl">Показов рекламы</div>
         </div>
       </div>
@@ -358,24 +363,24 @@
         <div class="stat">
           <div class="stat-accent" style="background:linear-gradient(90deg,#60a5fa,#3b82f6);"></div>
           <span class="stat-icon">🖱</span>
-          <div class="stat-val">{{ "{:,}".format(cabinet.totals.clicks) }}</div>
-          <div class="stat-lbl">Кликов · {{ ((cabinet.totals.clicks/cabinet.totals.impressions*100)|round(2)) if cabinet.totals.impressions else 0 }}% CTR</div>
+          <div class="stat-val">{{ "{:,}".format(t_clk) }}</div>
+          <div class="stat-lbl">Кликов{% if t_imp %} · {{ ((t_clk/t_imp*100)|round(2)) }}% CTR{% endif %}</div>
         </div>
       </div>
       <div class="col-6 col-md-3">
         <div class="stat">
           <div class="stat-accent" style="background:linear-gradient(90deg,#fca5a5,#f87171);"></div>
           <span class="stat-icon">💸</span>
-          <div class="stat-val">{{ "{:,}".format(cabinet.totals.expenses) }}</div>
+          <div class="stat-val">{{ "{:,}".format(t_exp) }}</div>
           <div class="stat-lbl">Потрачено, сум</div>
         </div>
       </div>
       <div class="col-6 col-md-3">
         <div class="stat">
-          <div class="stat-accent" style="background:linear-gradient(90deg,{% if cabinet.totals.crr <= 20 %}#6ee7a7,#22c55e{% elif cabinet.totals.crr <= 40 %}#fcd34d,#f59e0b{% else %}#fca5a5,#ef4444{% endif %});"></div>
+          <div class="stat-accent" style="background:linear-gradient(90deg,{% if t_crr <= 20 %}#6ee7a7,#22c55e{% elif t_crr <= 40 %}#fcd34d,#f59e0b{% else %}#fca5a5,#ef4444{% endif %});"></div>
           <span class="stat-icon">📊</span>
-          <div class="stat-val">{{ cabinet.totals.crr }}%</div>
-          <div class="stat-lbl">ДРР · выручка {{ "{:,}".format(cabinet.totals.revenue) }} сум</div>
+          <div class="stat-val">{{ t_crr }}%</div>
+          <div class="stat-lbl">ДРР · выручка {{ "{:,}".format(t_rev) }} сум</div>
         </div>
       </div>
     </div>

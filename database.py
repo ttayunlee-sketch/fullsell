@@ -55,11 +55,19 @@ def init_db():
             )
         """)
         # миграция: seller_id (для cabinet API)
-        try:
-            c.execute("ALTER TABLE clients ADD COLUMN seller_id INTEGER")
-            conn.commit()
-        except Exception:
-            conn.rollback() if DATABASE_URL else None  # SQLite не нуждается, postgres откатит "duplicate column"
+        if DATABASE_URL:
+            try:
+                c.execute("ALTER TABLE clients ADD COLUMN IF NOT EXISTS seller_id INTEGER")
+                conn.commit()
+            except Exception:
+                try: conn.rollback()
+                except Exception: pass
+        else:
+            try:
+                c.execute("ALTER TABLE clients ADD COLUMN seller_id INTEGER")
+                conn.commit()
+            except Exception:
+                pass  # SQLite — колонка уже есть
         c.execute(f"""
             CREATE TABLE IF NOT EXISTS cabinet_tokens (
                 seller_id   INTEGER PRIMARY KEY,

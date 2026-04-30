@@ -28,6 +28,14 @@ app = FastAPI()
 app.add_middleware(GZipMiddleware, minimum_size=500)
 
 
+@app.exception_handler(Exception)
+async def _all_exc(request, exc):
+    import traceback as _tb
+    tb = _tb.format_exc()
+    print(f"[FullSell ERROR] {request.url.path}\n{tb}", flush=True)
+    return JSONResponse({"error": str(exc), "path": str(request.url.path), "trace": tb[-1500:]}, status_code=500)
+
+
 def _extract_image(p: dict) -> str:
     """Извлекает URL фото товара из разных форматов UZUM API."""
     photos = p.get("photos") or []
@@ -279,7 +287,12 @@ async def shop_page(cid: int, request: Request, session: str = Cookie(default=No
             seller_id = client["seller_id"]
         except (KeyError, TypeError):
             seller_id = None
-    cabinet = {"has_token": False, "campaigns": [], "error": None, "token_age": None, "totals": {}}
+    cabinet = {
+        "has_token": False, "campaigns": [], "error": None,
+        "token_age": None,
+        "totals": {"impressions": 0, "clicks": 0, "expenses": 0,
+                   "revenue": 0, "sold_qty": 0, "atc": 0, "crr": 0},
+    }
     try:
         if seller_id:
             try:
