@@ -280,27 +280,41 @@ async def shop_page(cid: int, request: Request, session: str = Cookie(default=No
         except (KeyError, TypeError):
             seller_id = None
     cabinet = {"has_token": False, "campaigns": [], "error": None, "token_age": None, "totals": {}}
-    if seller_id:
-        tok = get_cabinet_token(int(seller_id))
-        if tok and tok.get("token"):
-            cabinet["has_token"] = True
-            cabinet["token_age"] = tok.get("updated_at")
-            res = get_ad_campaigns(tok["token"], int(seller_id), days=30)
-            cabinet["campaigns"] = res.get("items") or []
-            cabinet["error"] = res.get("error")
-            # Обогащаем метриками из Cube.js
-            if cabinet["campaigns"]:
-                ids = [c.get("id") for c in cabinet["campaigns"] if c.get("id")]
-                stats = get_ad_campaign_stats(tok["token"], ids, days=30)
-                totals = {"impressions": 0, "clicks": 0, "expenses": 0, "revenue": 0, "sold_qty": 0, "atc": 0}
-                for c in cabinet["campaigns"]:
-                    s = stats.get(str(c.get("id")), {})
-                    c["stats"] = s
-                    for k in totals:
-                        totals[k] += s.get(k, 0)
-                # ДРР по магазину = расходы / выручка
-                totals["crr"] = round((totals["expenses"] / totals["revenue"] * 100), 2) if totals["revenue"] else 0
-                cabinet["totals"] = totals
+    try:
+        if seller_id:
+            try:
+                sid = int(seller_id)
+            except (TypeError, ValueError):
+                sid = None
+            tok = get_cabinet_token(sid) if sid else None
+            if tok and tok.get("token"):
+                cabinet["has_token"] = True
+                cabinet["token_age"] = tok.get("updated_at")
+                res = get_ad_campaigns(tok["token"], sid, days=30)
+                cabinet["campaigns"] = res.get("items") or []
+                cabinet["error"] = res.get("error")
+                # Обогащаем метриками из Cube.js (опционально, не падаем если что-то не так)
+                if cabinet["campaigns"]:
+                    try:
+                        ids = [c.get("id") for c in cabinet["campaigns"] if c.get("id")]
+                        stats = get_ad_campaign_stats(tok["token"], ids, days=30) or {}
+                        totals = {"impressions": 0, "clicks": 0, "expenses": 0,
+                                  "revenue": 0, "sold_qty": 0, "atc": 0, "crr": 0}
+                        for c in cabinet["campaigns"]:
+                            s = stats.get(str(c.get("id")), {}) or {}
+                            c["stats"] = s
+                            for k in ("impressions", "clicks", "expenses", "revenue", "sold_qty", "atc"):
+                                try:
+                                    totals[k] += int(s.get(k) or 0)
+                                except (TypeError, ValueError):
+                                    pass
+                        if totals["revenue"]:
+                            totals["crr"] = round(totals["expenses"] / totals["revenue"] * 100, 2)
+                        cabinet["totals"] = totals
+                    except Exception as e:
+                        cabinet["error"] = f"stats_error: {e}"
+    except Exception as e:
+        cabinet["error"] = f"cabinet_error: {e}"
 
     return templates.TemplateResponse(request, "shop.html", {
         "client":    client,
