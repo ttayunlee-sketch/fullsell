@@ -15,7 +15,7 @@ from database import (
 from uzum import (
     get_products, test_connection, get_finance_orders, get_finance_expenses,
     debug_finance_orders, debug_ad_campaigns,
-    get_ad_campaigns, get_boost_orders_products,
+    get_ad_campaigns, get_boost_orders_products, get_ad_campaign_stats,
 )
 from ai import ask as ai_ask, audit_product, promotion_strategy
 
@@ -279,7 +279,7 @@ async def shop_page(cid: int, request: Request, session: str = Cookie(default=No
             seller_id = client["seller_id"]
         except (KeyError, TypeError):
             seller_id = None
-    cabinet = {"has_token": False, "campaigns": [], "error": None, "token_age": None}
+    cabinet = {"has_token": False, "campaigns": [], "error": None, "token_age": None, "totals": {}}
     if seller_id:
         tok = get_cabinet_token(int(seller_id))
         if tok and tok.get("token"):
@@ -288,6 +288,19 @@ async def shop_page(cid: int, request: Request, session: str = Cookie(default=No
             res = get_ad_campaigns(tok["token"], int(seller_id), days=30)
             cabinet["campaigns"] = res.get("items") or []
             cabinet["error"] = res.get("error")
+            # Обогащаем метриками из Cube.js
+            if cabinet["campaigns"]:
+                ids = [c.get("id") for c in cabinet["campaigns"] if c.get("id")]
+                stats = get_ad_campaign_stats(tok["token"], ids, days=30)
+                totals = {"impressions": 0, "clicks": 0, "expenses": 0, "revenue": 0, "sold_qty": 0, "atc": 0}
+                for c in cabinet["campaigns"]:
+                    s = stats.get(str(c.get("id")), {})
+                    c["stats"] = s
+                    for k in totals:
+                        totals[k] += s.get(k, 0)
+                # ДРР по магазину = расходы / выручка
+                totals["crr"] = round((totals["expenses"] / totals["revenue"] * 100), 2) if totals["revenue"] else 0
+                cabinet["totals"] = totals
 
     return templates.TemplateResponse(request, "shop.html", {
         "client":    client,

@@ -120,6 +120,97 @@ def get_ad_campaigns(cabinet_token: str, seller_id: int, days: int = 30) -> dict
     return {"items": items, "error": error}
 
 
+ANALYTICS_BASE = "https://analytics-seller.uzum.uz"
+
+
+def _cube_query(cabinet_token: str, query: dict) -> dict:
+    """Универсальный вызов Cube.js BI-движка UZUM."""
+    import json as _json
+    headers = {
+        "Authorization": cabinet_token,  # БЕЗ Bearer для analytics-seller!
+        "Accept": "*/*",
+        "Accept-Language": "ru",
+        "Origin": "https://seller.uzum.uz",
+        "Referer": "https://seller.uzum.uz/",
+    }
+    try:
+        r = requests.get(
+            f"{ANALYTICS_BASE}/cubejs-api/v1/load",
+            headers=headers,
+            params={"query": _json.dumps(query, separators=(',', ':')), "queryType": "multi"},
+            timeout=25,
+        )
+        if r.status_code != 200:
+            return {"error": f"http_{r.status_code}", "rows": []}
+        data = r.json() if r.content else {}
+        rows = []
+        if isinstance(data, dict):
+            results = data.get("results")
+            if isinstance(results, list):
+                for block in results:
+                    rows.extend(block.get("data") or [])
+            else:
+                rows = data.get("data") or []
+        return {"error": None, "rows": rows}
+    except Exception as e:
+        return {"error": str(e), "rows": []}
+
+
+def get_ad_campaign_stats(cabinet_token: str, campaign_ids: list, days: int = 30) -> dict:
+    """Метрики по кампаниям: показы, клики, выручка, ДРР, конверсия."""
+    if not cabinet_token or not campaign_ids:
+        return {}
+    from datetime import datetime, timedelta
+    to_d = datetime.now().date()
+    from_d = to_d - timedelta(days=days)
+    query = {
+        "measures": [
+            "AdvertisingDailyFunnel.impressions_sum",
+            "AdvertisingDailyFunnel.clicks_sum",
+            "AdvertisingDailyFunnel.expenses_sum",
+            "AdvertisingDailyFunnel.atc_quantity_sum",
+            "AdvertisingDailyFunnel.revenue_final",
+            "AdvertisingDailyFunnel.sold_quantity_sum",
+            "AdvertisingDailyFunnel.crr",
+            "AdvertisingDailyFunnel.impressions_to_order_rate",
+        ],
+        "dimensions": ["AdvertisingDailyFunnel.ad_campaign_id"],
+        "timezone": "Asia/Tashkent",
+        "timeDimensions": [{
+            "dimension": "AdvertisingDailyFunnel.date",
+            "dateRange": [from_d.isoformat(), to_d.isoformat()],
+        }],
+        "filters": [{
+            "member": "AdvertisingDailyFunnel.ad_campaign_id",
+            "operator": "equals",
+            "values": [str(cid) for cid in campaign_ids],
+        }],
+    }
+    res = _cube_query(cabinet_token, query)
+    out = {}
+    for row in res.get("rows") or []:
+        cid = row.get("AdvertisingDailyFunnel.ad_campaign_id")
+        if cid is None:
+            continue
+        def _f(k):
+            v = row.get(f"AdvertisingDailyFunnel.{k}")
+            try:
+                return float(v) if v is not None else 0
+            except (TypeError, ValueError):
+                return 0
+        out[str(cid)] = {
+            "impressions": int(_f("impressions_sum")),
+            "clicks":      int(_f("clicks_sum")),
+            "expenses":    int(_f("expenses_sum")),
+            "atc":         int(_f("atc_quantity_sum")),
+            "revenue":     int(_f("revenue_final")),
+            "sold_qty":    int(_f("sold_quantity_sum")),
+            "crr":         round(_f("crr") * 100, 2),  # ДРР: 0.27 → 27%
+            "i2o":         round(_f("impressions_to_order_rate") * 100, 2),
+        }
+    return out
+
+
 def get_boost_orders_products(cabinet_token: str, seller_id: int, days: int = 30) -> dict:
     """Список товаров с настройками 'Буст заказов'."""
     if not cabinet_token or not seller_id:

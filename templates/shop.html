@@ -343,6 +343,44 @@
       </div>
     </div>
   {% elif cabinet.campaigns %}
+    {# Итоги по всем кампаниям #}
+    {% if cabinet.totals.expenses or cabinet.totals.impressions %}
+    <div class="row g-3 mb-3">
+      <div class="col-6 col-md-3">
+        <div class="stat">
+          <div class="stat-accent" style="background:linear-gradient(90deg,#a5b4fc,#c4b5fd);"></div>
+          <span class="stat-icon">👁</span>
+          <div class="stat-val">{{ "{:,}".format(cabinet.totals.impressions) }}</div>
+          <div class="stat-lbl">Показов рекламы</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat">
+          <div class="stat-accent" style="background:linear-gradient(90deg,#60a5fa,#3b82f6);"></div>
+          <span class="stat-icon">🖱</span>
+          <div class="stat-val">{{ "{:,}".format(cabinet.totals.clicks) }}</div>
+          <div class="stat-lbl">Кликов · {{ ((cabinet.totals.clicks/cabinet.totals.impressions*100)|round(2)) if cabinet.totals.impressions else 0 }}% CTR</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat">
+          <div class="stat-accent" style="background:linear-gradient(90deg,#fca5a5,#f87171);"></div>
+          <span class="stat-icon">💸</span>
+          <div class="stat-val">{{ "{:,}".format(cabinet.totals.expenses) }}</div>
+          <div class="stat-lbl">Потрачено, сум</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat">
+          <div class="stat-accent" style="background:linear-gradient(90deg,{% if cabinet.totals.crr <= 20 %}#6ee7a7,#22c55e{% elif cabinet.totals.crr <= 40 %}#fcd34d,#f59e0b{% else %}#fca5a5,#ef4444{% endif %});"></div>
+          <span class="stat-icon">📊</span>
+          <div class="stat-val">{{ cabinet.totals.crr }}%</div>
+          <div class="stat-lbl">ДРР · выручка {{ "{:,}".format(cabinet.totals.revenue) }} сум</div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
     <div class="card-dark mb-3">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
         <div>
@@ -351,18 +389,23 @@
         </div>
         <span class="badge-ok">{{ cabinet.campaigns|length }} кампаний</span>
       </div>
-      <div class="table-wrap">
-        <table class="table table-borderless mb-0 fs-table">
+      <div class="table-wrap" style="overflow-x:auto;">
+        <table class="table table-borderless mb-0 fs-table" style="min-width:1400px;">
           <thead>
             <tr>
               <th>Кампания</th>
               <th>Период</th>
               <th>Статус</th>
               <th>SKU</th>
-              <th>Недельный бюджет</th>
-              <th>Дневной бюджет</th>
+              <th>Бюджет / неделя</th>
               <th>Остаток</th>
-              <th>Использовано</th>
+              <th>Показы</th>
+              <th>Клики · CTR</th>
+              <th>В корзину</th>
+              <th>Продажи</th>
+              <th>Выручка</th>
+              <th>Траты</th>
+              <th>ДРР</th>
             </tr>
           </thead>
           <tbody>
@@ -373,9 +416,9 @@
             {% set bplan = camp.get('budgetPlan') or {} %}
             {% set cper = bplan.get('currentPeriod') or {} if bplan else {} %}
             {% set weekly = cper.get('weeklyAmount') or bcfg.get('weeklyAmount') or 0 %}
-            {% set daily = cper.get('dailyAmount') or 0 %}
             {% set remaining = cper.get('weeklyAmountRemaining') or 0 %}
-            {% set used_pct = ((weekly - remaining) / weekly * 100) if weekly else 0 %}
+            {% set s = camp.get('stats') or {} %}
+            {% set ctr = ((s.clicks / s.impressions * 100)|round(2)) if s.get('impressions') else 0 %}
             <tr>
               <td class="product-name">{{ camp.get('name') or '—' }}<div style="color:#94a3b8;font-size:.72rem;margin-top:2px;">ID: {{ camp.get('id') }}</div></td>
               <td style="color:#cbd5e1;font-size:.82rem;white-space:nowrap;">{{ period.get('dateFrom', '—') }}<br>{{ period.get('dateTo', '—') }}</td>
@@ -387,26 +430,27 @@
                 {% else %}<span class="badge-off">{{ status }}</span>{% endif %}
               </td>
               <td style="color:#fff;">{{ camp.get('skuGroupsCount') or 0 }}</td>
-              <td style="color:#fff;font-weight:500;white-space:nowrap;">{{ "{:,}".format(weekly|int) }} <span style="color:#94a3b8;font-size:.72rem;">сум</span></td>
-              <td style="color:#cbd5e1;white-space:nowrap;">{% if daily %}{{ "{:,}".format(daily|int) }} сум{% else %}—{% endif %}</td>
-              <td style="color:#86efac;white-space:nowrap;">{% if remaining %}{{ "{:,}".format(remaining|int) }} сум{% else %}—{% endif %}</td>
-              <td style="min-width:140px;">
-                {% if weekly %}
-                  <div style="display:flex;align-items:center;gap:8px;">
-                    <div style="flex:1;height:6px;background:#262b3d;border-radius:3px;overflow:hidden;">
-                      <div style="width:{{ used_pct|round(1) }}%;height:100%;background:linear-gradient(90deg,#a5b4fc,#c4b5fd);"></div>
-                    </div>
-                    <span style="color:#cbd5e1;font-size:.78rem;white-space:nowrap;">{{ used_pct|round(0)|int }}%</span>
-                  </div>
-                {% else %}—{% endif %}
+              <td style="color:#fff;font-weight:500;white-space:nowrap;">{{ "{:,}".format(weekly|int) }}</td>
+              <td style="color:#86efac;white-space:nowrap;">{% if remaining %}{{ "{:,}".format(remaining|int) }}{% else %}—{% endif %}</td>
+              <td style="color:#fff;">{{ "{:,}".format(s.get('impressions', 0)) }}</td>
+              <td>
+                <span style="color:#fff;font-weight:500;">{{ "{:,}".format(s.get('clicks', 0)) }}</span>
+                {% if ctr %}<span style="color:#cbd5e1;font-size:.78rem;"> · {{ ctr }}%</span>{% endif %}
+              </td>
+              <td style="color:#cbd5e1;">{{ s.get('atc', 0) }}</td>
+              <td style="color:#fff;font-weight:500;">{{ s.get('sold_qty', 0) }}</td>
+              <td style="color:#86efac;font-weight:500;white-space:nowrap;">{{ "{:,}".format(s.get('revenue', 0)) }}</td>
+              <td style="color:#fca5a5;white-space:nowrap;">{{ "{:,}".format(s.get('expenses', 0)) }}</td>
+              <td style="white-space:nowrap;">
+                {% set crr = s.get('crr', 0) %}
+                {% if crr %}
+                  <span style="color:{% if crr <= 20 %}#86efac{% elif crr <= 40 %}#fcd34d{% else %}#fca5a5{% endif %};font-weight:600;">{{ crr }}%</span>
+                {% else %}<span style="color:#94a3b8;">—</span>{% endif %}
               </td>
             </tr>
             {% endfor %}
           </tbody>
         </table>
-      </div>
-      <div style="color:#94a3b8;font-size:.78rem;margin-top:10px;">
-        💡 Показы / клики / ДРР / выручка с рекламы — будут на следующем шаге через Cube.js endpoint, сейчас доступны только бюджеты и статусы.
       </div>
     </div>
   {% else %}
