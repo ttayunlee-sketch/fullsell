@@ -3,73 +3,100 @@
 {% block title %}Клиенты — FullSell{% endblock %}
 {% block content %}
 
-<div class="page-header">
-  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
-    <div>
-      <div class="page-title">Клиенты FullSell</div>
-      <div class="page-sub">Подключённые магазины UZUM маркета</div>
-    </div>
-    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addModal">
-      + Добавить магазин
-    </button>
+<div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+  <div>
+    <div class="page-title page-title-grad">Клиенты агентства</div>
+    <div class="page-sub">Подключённые магазины UZUM маркета · {{ clients|length }} активных</div>
   </div>
+  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addModal" style="display:inline-flex;align-items:center;gap:8px;">
+    <i data-lucide="plus" style="width:16px;height:16px;"></i>
+    Добавить магазин
+  </button>
 </div>
 
 {% if clients %}
-  <div style="display:flex;flex-direction:column;gap:10px;">
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:16px;">
     {% for c in clients %}
-    <div class="card-dark" style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;transition:border-color .2s;" onmouseover="this.style.borderColor='#818cf8'" onmouseout="this.style.borderColor='#262b3d'">
-      <div style="display:flex;align-items:center;gap:14px;">
-        <div style="width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,#818cf8,#a78bfa);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0;">🏪</div>
-        <div>
-          <div style="font-weight:600;color:#fff;font-size:1rem;">{{ c.name }}</div>
-          <div style="color:#e2e8f0;font-size:.82rem;margin-top:3px;">Shop ID: <span style="color:#ffffff;font-weight:500;">{{ c.shop_id }}</span> · добавлен {{ c.added_at }}</div>
+    <a href="/shop/{{ c.id }}" style="text-decoration:none;color:inherit;display:block;">
+      <div class="card-dark" style="cursor:pointer;display:flex;align-items:center;gap:16px;transition:all .25s;position:relative;overflow:hidden;"
+           onmouseover="this.style.transform='translateY(-3px)';this.style.borderColor='rgba(129,140,248,.3)';"
+           onmouseout="this.style.transform='';this.style.borderColor='';">
+        <div style="position:absolute;inset:0;background:radial-gradient(120% 80% at 0% 0%, rgba(129,140,248,.06), transparent 60%);pointer-events:none;"></div>
+
+        <div style="width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#818cf8,#a78bfa,#c084fc);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 8px 24px rgba(129,140,248,.35),inset 0 1px 0 rgba(255,255,255,.2);">
+          <i data-lucide="store" style="width:24px;height:24px;color:#fff;"></i>
+        </div>
+
+        <div style="flex:1;min-width:0;position:relative;">
+          <div style="font-weight:600;color:#fff;font-size:1.02rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ c.name }}</div>
+          <div style="color:var(--muted);font-size:.78rem;margin-top:4px;display:flex;gap:10px;flex-wrap:wrap;">
+            <span style="display:inline-flex;align-items:center;gap:4px;"><i data-lucide="hash" style="width:12px;height:12px;"></i>{{ c.shop_id }}</span>
+            <span>·</span>
+            <span style="display:inline-flex;align-items:center;gap:4px;"><i data-lucide="calendar" style="width:12px;height:12px;"></i>{{ c.added_at }}</span>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;position:relative;">
+          <span class="badge-ok">Активен</span>
+          <form method="post" action="/clients/{{ c.id }}/delete" onsubmit="event.stopPropagation();return confirm('Удалить магазин {{ c.name }}?');" style="margin:0;" onclick="event.stopPropagation();">
+            <button type="submit" class="btn-ghost" style="padding:7px 10px;cursor:pointer;display:inline-flex;align-items:center;">
+              <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
+            </button>
+          </form>
+          <i data-lucide="chevron-right" style="width:20px;height:20px;color:var(--muted);"></i>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:10px;">
-        <span class="badge-ok">Активен</span>
-        <a href="/shop/{{ c.id }}" class="btn btn-primary btn-sm">Открыть →</a>
-        <form method="post" action="/clients/{{ c.id }}/delete" onsubmit="return confirm('Удалить магазин {{ c.name }}?')" style="margin:0;">
-          <button type="submit" class="btn-ghost" style="padding:6px 12px;cursor:pointer;font-size:1rem;">✕</button>
-        </form>
-      </div>
-    </div>
+    </a>
     {% endfor %}
   </div>
 {% else %}
-  <div class="card-dark text-center py-5">
-    <div style="font-size:3rem;margin-bottom:14px;">🏪</div>
-    <div style="font-weight:600;color:#f1f5f9;margin-bottom:6px;font-size:1.05rem;">Нет клиентов</div>
-    <div style="font-size:.88rem;color:#e2e8f0;">Нажмите «+ Добавить магазин» чтобы начать</div>
+  <div class="card-dark" style="text-align:center;padding:60px 24px;">
+    <div style="width:72px;height:72px;border-radius:18px;margin:0 auto 18px;background:linear-gradient(135deg,#818cf8,#a78bfa);display:flex;align-items:center;justify-content:center;box-shadow:0 12px 40px rgba(129,140,248,.4);">
+      <i data-lucide="store" style="width:36px;height:36px;color:#fff;"></i>
+    </div>
+    <div style="font-weight:600;color:#fff;font-size:1.15rem;margin-bottom:8px;">Подключите свой первый магазин</div>
+    <div style="color:var(--muted);font-size:.9rem;max-width:380px;margin:0 auto 24px;">
+      Получите аналитику продаж, мониторинг рекламы и AI-стратегию продвижения
+    </div>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addModal" style="display:inline-flex;align-items:center;gap:8px;">
+      <i data-lucide="plus" style="width:16px;height:16px;"></i>
+      Добавить магазин
+    </button>
   </div>
 {% endif %}
 
 <!-- Модалка добавления -->
 <div class="modal fade" id="addModal" tabindex="-1">
-  <div class="modal-dialog">
-    <div class="modal-content" style="background:#151926;border:1px solid #353a52;border-radius:14px;">
-      <div class="modal-header" style="border-color:#262b3d;">
-        <h5 class="modal-title" style="color:#fff;font-weight:600;">Добавить магазин</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header" style="padding:20px 24px;">
+        <div>
+          <h5 class="modal-title" style="color:#fff;font-weight:700;letter-spacing:-.02em;">Добавить магазин</h5>
+          <div style="color:var(--muted);font-size:.82rem;margin-top:2px;">Подключите магазин UZUM Seller</div>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" style="opacity:.6;"></button>
       </div>
       <form method="post" action="/clients/add">
-        <div class="modal-body">
+        <div class="modal-body" style="padding:8px 24px 16px;">
           <div class="mb-3">
-            <label style="color:#ffffff;font-size:.88rem;margin-bottom:6px;display:block;font-weight:500;">Название клиента</label>
+            <label style="color:var(--text-2);font-size:.85rem;margin-bottom:6px;display:block;font-weight:500;">Название клиента</label>
             <input type="text" name="name" class="form-control" placeholder="Например: procosmetics.uz" required>
           </div>
           <div class="mb-3">
-            <label style="color:#ffffff;font-size:.88rem;margin-bottom:6px;display:block;font-weight:500;">Shop ID</label>
+            <label style="color:var(--text-2);font-size:.85rem;margin-bottom:6px;display:block;font-weight:500;">Shop ID</label>
             <input type="number" name="shop_id" class="form-control" placeholder="110091" required>
           </div>
           <div class="mb-3">
-            <label style="color:#ffffff;font-size:.88rem;margin-bottom:6px;display:block;font-weight:500;">API ключ UZUM</label>
-            <input type="password" name="api_key" class="form-control" placeholder="Ключ из cabinet.uzum.uz" required>
+            <label style="color:var(--text-2);font-size:.85rem;margin-bottom:6px;display:block;font-weight:500;">API ключ UZUM</label>
+            <input type="password" name="api_key" class="form-control mono" placeholder="Ключ из cabinet.uzum.uz" required style="font-size:.82rem;">
+            <div style="color:var(--muted);font-size:.75rem;margin-top:6px;">Получить в cabinet.uzum.uz → Интеграции → API</div>
           </div>
         </div>
-        <div class="modal-footer" style="border-color:#262b3d;">
-          <button type="button" class="btn btn-ghost btn-sm" data-bs-dismiss="modal">Отмена</button>
-          <button type="submit" class="btn btn-primary btn-sm">Добавить →</button>
+        <div class="modal-footer" style="padding:12px 24px 18px;gap:8px;">
+          <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Отмена</button>
+          <button type="submit" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:6px;">
+            Добавить <i data-lucide="arrow-right" style="width:14px;height:14px;"></i>
+          </button>
         </div>
       </form>
     </div>
@@ -77,4 +104,5 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>if(window.lucide)lucide.createIcons();</script>
 {% endblock %}

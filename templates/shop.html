@@ -4,12 +4,18 @@
 {% block title %}{{ client.name }} — FullSell{% endblock %}
 {% block content %}
 
-<div class="page-header">
-  <div style="display:flex;align-items:center;gap:12px;">
-    <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:1.2rem;">🏪</div>
+<div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+  <div style="display:flex;align-items:center;gap:16px;">
+    <div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#818cf8,#a78bfa,#c084fc);display:flex;align-items:center;justify-content:center;box-shadow:0 12px 32px rgba(129,140,248,.45),inset 0 1px 0 rgba(255,255,255,.25);">
+      <i data-lucide="store" style="width:28px;height:28px;color:#fff;"></i>
+    </div>
     <div>
-      <div class="page-title">{{ client.name }}</div>
-      <div class="page-sub">Shop ID: {{ client.shop_id }} · обновлено только что</div>
+      <div class="page-title page-title-grad">{{ client.name }}</div>
+      <div class="page-sub" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span style="display:inline-flex;align-items:center;gap:5px;"><i data-lucide="hash" style="width:13px;height:13px;"></i>Shop ID: <span style="color:#fff;font-weight:500;">{{ client.shop_id }}</span></span>
+        <span>·</span>
+        <span style="display:inline-flex;align-items:center;gap:5px;color:#86efac;"><span style="width:6px;height:6px;border-radius:50%;background:#4ade80;box-shadow:0 0 8px #4ade80;"></span>обновлено только что</span>
+      </div>
     </div>
   </div>
 </div>
@@ -51,17 +57,13 @@
 </div>
 
 <!-- Вкладки -->
-<ul class="nav mb-0" style="border-bottom:1px solid var(--border);gap:2px;margin-bottom:0 !important;">
-  <li><a href="#" class="tab-link active" onclick="return tab(this,'products')">📦 Товары</a></li>
-  <li><a href="#" class="tab-link" onclick="return tab(this,'analytics')">📊 Аналитика</a></li>
-  <li><a href="#" class="tab-link" onclick="return tab(this,'alerts')">🔔 Алерты
-    {% if alerts %}<span style="background:#6366f1;color:#fff;border-radius:20px;padding:1px 7px;font-size:.7rem;margin-left:4px;">{{ alerts|length }}</span>{% endif %}
-  </a></li>
-  <li><a href="#" class="tab-link" onclick="return tab(this,'finance')">💰 Продажи
-    {% if finance.orders_count %}<span style="background:#4ade80;color:#06291a;border-radius:20px;padding:1px 7px;font-size:.7rem;margin-left:4px;font-weight:600;">{{ finance.orders_count }}</span>{% endif %}
-  </a></li>
-  <li><a href="#" class="tab-link" onclick="return tab(this,'promo')">🎯 Продвижение</a></li>
-  <li><a href="#" class="tab-link" onclick="return tab(this,'ai')">🤖 AI Советник</a></li>
+<ul class="nav fs-tabs mb-0" style="border-bottom:1px solid var(--border);gap:2px;margin-bottom:0 !important;display:flex;flex-wrap:wrap;">
+  <li><a href="#" class="tab-link active" onclick="return tab(this,'products')"><i data-lucide="package" style="width:16px;height:16px;"></i>Товары</a></li>
+  <li><a href="#" class="tab-link" onclick="return tab(this,'analytics')"><i data-lucide="bar-chart-3" style="width:16px;height:16px;"></i>Аналитика</a></li>
+  <li><a href="#" class="tab-link" onclick="return tab(this,'alerts')"><i data-lucide="bell" style="width:16px;height:16px;"></i>Алерты{% if alerts %}<span class="summary-pill" style="background:rgba(129,140,248,.18);color:#c7d2fe;">{{ alerts|length }}</span>{% endif %}</a></li>
+  <li><a href="#" class="tab-link" onclick="return tab(this,'finance')"><i data-lucide="wallet" style="width:16px;height:16px;"></i>Продажи{% if finance.orders_count %}<span class="summary-pill" style="background:rgba(74,222,128,.18);color:#86efac;">{{ finance.orders_count }}</span>{% endif %}</a></li>
+  <li><a href="#" class="tab-link" onclick="return tab(this,'promo')"><i data-lucide="rocket" style="width:16px;height:16px;"></i>Продвижение</a></li>
+  <li><a href="#" class="tab-link" onclick="return tab(this,'ai')"><i data-lucide="sparkles" style="width:16px;height:16px;"></i>AI Советник</a></li>
 </ul>
 
 <!-- ── ТОВАРЫ ──────────────────────────────────────────────────────────────── -->
@@ -604,6 +606,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>if(window.lucide)lucide.createIcons();setTimeout(()=>{if(window.lucide)lucide.createIcons();},100);</script>
 <script>
 async function auditProduct(pid, title, img) {
   if (!pid) return;

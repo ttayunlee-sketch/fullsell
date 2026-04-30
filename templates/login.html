@@ -4,33 +4,194 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FullSell — Вход</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 <style>
-  body { background: #0f1117; color: #e2e8f0; font-family: 'Segoe UI', sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-  .box { background: #1a1d27; border: 1px solid #252836; border-radius: 16px; padding: 40px 36px; width: 360px; }
-  .logo { font-size: 1.6rem; font-weight: 800; margin-bottom: 6px; }
-  .logo .accent { background: linear-gradient(135deg,#6366f1,#8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-  .sub { color: #64748b; font-size: .88rem; margin-bottom: 32px; }
-  label { color: #94a3b8; font-size: .85rem; margin-bottom: 6px; display: block; }
-  input[type=password] { background: #252836; border: 1px solid #313449; color: #e2e8f0; border-radius: 8px; padding: 10px 14px; width: 100%; font-size: .95rem; outline: none; transition: border-color .2s; }
-  input[type=password]:focus { border-color: #6366f1; }
-  .btn-login { background: linear-gradient(135deg,#6366f1,#8b5cf6); border: none; border-radius: 8px; padding: 11px; width: 100%; color: #fff; font-weight: 600; font-size: .95rem; margin-top: 20px; cursor: pointer; transition: opacity .15s; }
-  .btn-login:hover { opacity: .88; }
-  .err { background: rgba(239,68,68,.12); color: #f87171; border-radius: 8px; padding: 10px 14px; font-size: .85rem; margin-bottom: 16px; }
+  * { box-sizing: border-box; }
+  body {
+    background: #07080f;
+    background-image:
+      radial-gradient(ellipse 60% 50% at 50% 0%, rgba(129,140,248,.18), transparent 60%),
+      radial-gradient(ellipse 80% 60% at 50% 100%, rgba(192,132,252,.1), transparent 70%);
+    background-attachment: fixed;
+    color: #f5f7fa;
+    font-family: 'Inter', system-ui, sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; margin: 0;
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: -.01em;
+    overflow: hidden;
+  }
+  body::before {
+    content: ''; position: fixed; inset: 0; pointer-events: none;
+    background-image: radial-gradient(rgba(255,255,255,.03) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  .box {
+    position: relative; z-index: 1;
+    background: linear-gradient(180deg, rgba(15,18,32,.85), rgba(7,8,15,.85));
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 20px; padding: 44px 40px;
+    width: 400px;
+    box-shadow:
+      0 30px 80px rgba(0,0,0,.5),
+      0 0 80px rgba(129,140,248,.1),
+      inset 0 1px 0 rgba(255,255,255,.06);
+    animation: fadeUp .5s ease-out;
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .logo-row {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 8px;
+  }
+  .logo-mark {
+    width: 44px; height: 44px; border-radius: 12px;
+    background: linear-gradient(135deg, #818cf8, #a78bfa, #c084fc);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-weight: 800; font-size: 15px;
+    box-shadow:
+      0 8px 24px rgba(129,140,248,.5),
+      inset 0 1px 0 rgba(255,255,255,.25);
+    letter-spacing: -.02em;
+  }
+  .logo-text {
+    font-size: 1.4rem; font-weight: 700;
+    background: linear-gradient(135deg, #fff 0%, #c7d2fe 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -.02em;
+  }
+
+  .sub {
+    color: #8b93a7; font-size: .88rem;
+    margin-bottom: 32px;
+  }
+
+  label {
+    color: #c8cfdc; font-size: .85rem;
+    margin-bottom: 8px; display: block;
+    font-weight: 500;
+  }
+  .input-wrap { position: relative; }
+  .input-wrap svg {
+    position: absolute; left: 14px; top: 50%;
+    transform: translateY(-50%);
+    color: #5a6275; width: 18px; height: 18px;
+    pointer-events: none;
+  }
+  input[type=password] {
+    background: rgba(15,18,32,.6);
+    border: 1px solid rgba(255,255,255,.12);
+    color: #fff;
+    border-radius: 12px;
+    padding: 12px 14px 12px 44px;
+    width: 100%; font-size: .95rem;
+    outline: none;
+    font-family: inherit;
+    transition: all .15s;
+  }
+  input[type=password]:focus {
+    border-color: #818cf8;
+    background: rgba(15,18,32,.8);
+    box-shadow: 0 0 0 4px rgba(129,140,248,.15);
+  }
+  input[type=password]::placeholder { color: #5a6275; }
+
+  .btn-login {
+    background: linear-gradient(135deg, #818cf8 0%, #a78bfa 50%, #c084fc 100%);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 12px;
+    padding: 13px;
+    width: 100%; color: #fff;
+    font-weight: 600; font-size: .95rem;
+    margin-top: 22px; cursor: pointer;
+    box-shadow:
+      0 6px 20px rgba(129,140,248,.4),
+      inset 0 1px 0 rgba(255,255,255,.2);
+    transition: all .18s cubic-bezier(.4,0,.2,1);
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    font-family: inherit;
+    letter-spacing: -.005em;
+  }
+  .btn-login:hover {
+    transform: translateY(-1px);
+    box-shadow:
+      0 10px 32px rgba(129,140,248,.55),
+      inset 0 1px 0 rgba(255,255,255,.25);
+  }
+  .btn-login:active { transform: translateY(0); }
+
+  .err {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(251,113,133,.12);
+    color: #fb7185;
+    border: 1px solid rgba(251,113,133,.25);
+    border-radius: 10px;
+    padding: 11px 14px; font-size: .85rem;
+    margin-bottom: 18px;
+    font-weight: 500;
+  }
+
+  .footer-hint {
+    margin-top: 24px;
+    text-align: center;
+    color: #5a6275;
+    font-size: .76rem;
+    letter-spacing: .02em;
+  }
+  .footer-hint .pulse {
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #4ade80;
+    box-shadow: 0 0 8px #4ade80;
+    margin-right: 4px;
+    animation: blink 2s infinite;
+  }
+  @keyframes blink {
+    50% { opacity: .3; }
+  }
 </style>
 </head>
 <body>
 <div class="box">
-  <div class="logo">FS <span class="accent">FullSell</span></div>
-  <div class="sub">Панель управления магазинами UZUM</div>
+  <div class="logo-row">
+    <div class="logo-mark">FS</div>
+    <div class="logo-text">FullSell</div>
+  </div>
+  <div class="sub">Премиум-аналитика магазинов UZUM маркета</div>
+
   {% if error %}
-  <div class="err">❌ Неверный пароль</div>
+  <div class="err">
+    <i data-lucide="alert-circle" style="width:16px;height:16px;"></i>
+    Неверный пароль
+  </div>
   {% endif %}
+
   <form method="post" action="/login">
     <label>Пароль</label>
-    <input type="password" name="password" placeholder="Введите пароль" autofocus>
-    <button type="submit" class="btn-login">Войти →</button>
+    <div class="input-wrap">
+      <i data-lucide="lock"></i>
+      <input type="password" name="password" placeholder="Введите пароль" autofocus>
+    </div>
+    <button type="submit" class="btn-login">
+      Войти <i data-lucide="arrow-right" style="width:16px;height:16px;"></i>
+    </button>
   </form>
+
+  <div class="footer-hint">
+    <span class="pulse"></span>Система активна · UZUM API подключён
+  </div>
 </div>
+<script>if(window.lucide)lucide.createIcons();</script>
 </body>
 </html>
