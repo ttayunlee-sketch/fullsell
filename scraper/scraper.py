@@ -57,9 +57,11 @@ async def _launch_context(p):
     zr_key = os.environ.get("ZENROWS_API_KEY", "").strip()
     if zr_key and not proxy_url:
         # ZenRows proxy-mode: API key как username, параметры как password
-        # premium_proxy=true → residential IPs (платный план)
-        # без него — datacenter IPs (бесплатный trial)
-        zr_password = "premium_proxy=true" if os.environ.get("ZENROWS_PREMIUM") else ""
+        # По умолчанию включаем premium_proxy=true (residential IPs)
+        # потому что Yandex Cloud банит datacenter пул ZenRows.
+        # Trial 1000 запросов покрывает premium тоже.
+        zr_disable_premium = os.environ.get("ZENROWS_NO_PREMIUM", "").strip()
+        zr_password = "" if zr_disable_premium else "premium_proxy=true"
         proxy_url = f"http://{zr_key}:{zr_password}@proxy.zenrows.com:8001"
     launch_kwargs = {
         "headless": True,
