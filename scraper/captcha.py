@@ -69,36 +69,80 @@ async def solve_yandex_captcha(page) -> bool:
 
     print(f"[captcha] solving on {page.url[:120]}...", flush=True)
 
-    # 1. Извлекаем sitekey — он живёт в iframe src или в window.SmartCaptcha
+    # ── ждём пока JS дорендерит виджет (iframe с капчей появляется не сразу)
+    print("[captcha] waiting 8s for widget render...", flush=True)
+    await page.wait_for_timeout(8000)
+
+    # 1. Извлекаем sitekey — пробуем максимум стратегий
     sitekey = await page.evaluate(
         """
         () => {
-          // ищем iframe с captcha
+          const tryRegex = (s) => {
+            if (!s) return null;
+            const patterns = [
+              /(?:sitekey|client_key|data-sitekey)["'\s:=]+([A-Za-z0-9_-]{16,})/,
+              /ysc1_[A-Za-z0-9_-]+/,
+              /ymsk_[A-Za-z0-9_-]+/,
+            ];
+            for (const re of patterns) {
+              const m = s.match(re);
+              if (m) return m[1] || m[0];
+            }
+            return null;
+          };
+
+          // 1. Все iframe — src
           for (const f of document.querySelectorAll('iframe')) {
-            const src = f.src || '';
-            const m = src.match(/sitekey=([A-Za-z0-9_-]+)/) || src.match(/key=([A-Za-z0-9_-]+)/);
-            if (m) return m[1];
+            const found = tryRegex(f.src) || tryRegex(f.getAttribute('data-sitekey'));
+            if (found) return {via: 'iframe', key: found};
           }
-          // ищем в data-атрибутах
+          // 2. data-sitekey атрибуты
           for (const el of document.querySelectorAll('[data-sitekey]')) {
             const v = el.getAttribute('data-sitekey');
-            if (v) return v;
+            if (v && v.length >= 16) return {via: 'data-attr', key: v};
           }
+          // 3. window.SmartCaptcha / window.smartCaptcha config
+          try {
+            for (const obj of [window.SmartCaptcha, window.smartCaptcha, window.YandexSmartCaptcha]) {
+              if (obj && obj.sitekey) return {via: 'window', key: obj.sitekey};
+            }
+          } catch(e) {}
+          // 4. Поиск в инлайн-скриптах
+          for (const s of document.querySelectorAll('script')) {
+            const found = tryRegex(s.textContent);
+            if (found) return {via: 'inline-script', key: found};
+          }
+          // 5. Поиск во всём HTML
+          const found = tryRegex(document.documentElement.outerHTML);
+          if (found) return {via: 'html', key: found};
           return null;
         }
         """
     )
-    if not sitekey:
-        # fallback: парсим HTML страницы
-        html = await page.content()
-        m = re.search(r'(?:sitekey|data-sitekey)["\']?\s*[=:]\s*["\']([A-Za-z0-9_-]+)', html)
-        sitekey = m.group(1) if m else None
 
     if not sitekey:
+        # ── DEBUG dump: сохраняем HTML и скрин чтобы потом посмотреть
+        try:
+            html = await page.content()
+            dump_html = "/state/captcha_dump.html"
+            dump_png  = "/state/captcha_dump.png"
+            with open(dump_html, "w", encoding="utf-8") as f:
+                f.write(html)
+            await page.screenshot(path=dump_png, full_page=True)
+            print(f"[captcha] DUMPED: {dump_html} ({len(html)} bytes), {dump_png}", flush=True)
+            # покажем первые 30 строк HTML — поможет дебагать без выхода в файл
+            print("[captcha] === first 30 lines of HTML ===", flush=True)
+            for line in html.splitlines()[:30]:
+                print(f"  {line[:200]}", flush=True)
+            print("[captcha] === end HTML preview ===", flush=True)
+        except Exception as e:
+            print(f"[captcha] dump failed: {e}", flush=True)
         print("[captcha] could NOT extract sitekey", flush=True)
         return False
 
-    print(f"[captcha] sitekey={sitekey[:30]}...", flush=True)
+    via = sitekey.get("via")
+    sitekey = sitekey.get("key")
+    print(f"[captcha] sitekey found via {via}: {sitekey[:30]}...", flush=True)
 
     # 2. Отправляем в 2captcha
     cid = await _2cap_in(sitekey, page.url)
