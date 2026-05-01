@@ -42,6 +42,10 @@ services:
       POSTGRES_DB: fullsell
       POSTGRES_USER: fullsell
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    # Открываем 5432 наружу — нужно для Tashkent VPS scraper.
+    # Доступ ограничен Lightsail firewall whitelist (138.249.248.45/32).
+    ports:
+      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
