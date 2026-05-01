@@ -33,15 +33,23 @@ async def main() -> int:
     print(f"   API key: {API_KEY[:6]}...{API_KEY[-4:]}")
     print()
 
-    async with httpx.AsyncClient(timeout=180) as c:
+    # data_format=markdown — Bright Data ОТРЕНДЕРИТ JS у себя и вернёт content.
+    # country=uz — geo Uzbekistan для оптимального захода на uzum.uz.
+    payload = {
+        "zone":        ZONE,
+        "url":         TEST_URL,
+        "format":      "raw",
+        "country":     "uz",
+        "data_format": "markdown",
+    }
+    print(f"📦 payload: {payload}")
+    print()
+
+    async with httpx.AsyncClient(timeout=240) as c:
         try:
             r = await c.post(
                 API_URL,
-                json={
-                    "zone":   ZONE,
-                    "url":    TEST_URL,
-                    "format": "raw",
-                },
+                json=payload,
                 headers={"Authorization": f"Bearer {API_KEY}"},
             )
         except Exception as e:
