@@ -14,9 +14,11 @@ echo ""
 # 1. Скрипт ежедневного запуска
 sudo tee /usr/local/bin/fullsell-scrape-daily.sh > /dev/null << 'DEPLOY_EOF'
 #!/bin/bash
-# Ежедневный полный прогон скрейпера UZUM
+# Ежедневный полный прогон скрейпера UZUM.
+# Перед каждым запуском пересобираем образ — на случай если в репе обновился код.
 cd /home/ubuntu/fullsell || exit 1
 echo "[$(date)] === DAILY SCRAPE START ===" >> /tmp/fullsell-scrape.log
+/usr/bin/docker compose --profile scrape build scraper >> /tmp/fullsell-scrape.log 2>&1
 /usr/bin/docker compose --profile scrape run --rm scraper >> /tmp/fullsell-scrape.log 2>&1
 echo "[$(date)] === DAILY SCRAPE END ===" >> /tmp/fullsell-scrape.log
 DEPLOY_EOF
@@ -32,6 +34,7 @@ FLAG="/var/lib/docker/volumes/fullsell_scraper_state/_data/refresh.flag"
 if [ -f "$FLAG" ]; then
     sudo rm -f "$FLAG"
     echo "[$(date)] === MANUAL REFRESH START ===" >> /tmp/fullsell-scrape.log
+    /usr/bin/docker compose --profile scrape build scraper >> /tmp/fullsell-scrape.log 2>&1
     /usr/bin/docker compose --profile scrape run --rm scraper >> /tmp/fullsell-scrape.log 2>&1
     echo "[$(date)] === MANUAL REFRESH END ===" >> /tmp/fullsell-scrape.log
 fi
