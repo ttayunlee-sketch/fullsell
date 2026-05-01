@@ -33,6 +33,14 @@ async def _launch_context(p):
     """Запуск Chromium с реалистичными параметрами + сохранённой сессией.
     Если задан UZUM_PROXY (http://user:pass@host:port) — весь трафик идёт через него."""
     proxy_url = os.environ.get("UZUM_PROXY", "").strip()
+    # Удобный alias: если задан ZENROWS_API_KEY — собираем proxy URL автоматически
+    zr_key = os.environ.get("ZENROWS_API_KEY", "").strip()
+    if zr_key and not proxy_url:
+        # ZenRows proxy-mode: API key как username, параметры как password
+        # premium_proxy=true → residential IPs (платный план)
+        # без него — datacenter IPs (бесплатный trial)
+        zr_password = "premium_proxy=true" if os.environ.get("ZENROWS_PREMIUM") else ""
+        proxy_url = f"http://{zr_key}:{zr_password}@proxy.zenrows.com:8001"
     launch_kwargs = {
         "headless": True,
         "args": [
@@ -54,13 +62,14 @@ async def _launch_context(p):
     }
     if proxy_url:
         # Playwright proxy spec: {server, username?, password?}
-        from urllib.parse import urlparse
+        from urllib.parse import urlparse, unquote
         u = urlparse(proxy_url)
         proxy_spec = {"server": f"{u.scheme}://{u.hostname}:{u.port or 8080}"}
-        if u.username: proxy_spec["username"] = u.username
-        if u.password: proxy_spec["password"] = u.password
+        if u.username: proxy_spec["username"] = unquote(u.username)
+        if u.password: proxy_spec["password"] = unquote(u.password)
         ctx_kwargs["proxy"] = proxy_spec
-        print(f"[scraper] proxy enabled: {u.hostname}:{u.port}", flush=True)
+        ctx_kwargs["ignore_https_errors"] = True   # на случай если прокси перевыпускает TLS
+        print(f"[scraper] proxy enabled: {u.hostname}:{u.port} (user={u.username[:8] if u.username else 'none'}...)", flush=True)
 
     ctx = await browser.new_context(**ctx_kwargs)
     # Маскируем webdriver-флаг
