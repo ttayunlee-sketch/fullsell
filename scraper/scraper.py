@@ -18,6 +18,26 @@ USER_AGENT = (
 )
 STATE_FILE = "/state/state.json"
 
+# Fallback-список топ-категорий uzum.uz (slug'и видны в навигации сайта).
+# Используется если API /api/main/root-categories не отвечает.
+FALLBACK_CATEGORY_SLUGS = [
+    "elektronika-i-bytovaya-tehnika-1",
+    "smartfony-i-telefony-2",
+    "kompyutery-i-noutbuki-3",
+    "odezhda-4",
+    "obuv-5",
+    "krasota-i-zdorove-6",
+    "produkty-pitaniya-7",
+    "tovary-dlya-doma-8",
+    "detskie-tovary-9",
+    "sport-i-otdyh-10",
+    "knigi-i-hobby-11",
+    "avtotovary-12",
+    "stroitelstvo-i-remont-13",
+    "zoologicheskie-tovary-14",
+    "uhod-za-soboi-15",
+]
+
 # ── Конфигурация прогона ─────────────────────────────────────────────────────
 TOP_CATEGORIES_LIMIT = int(os.environ.get("SCRAPER_TOP_CATS", "50"))
 PRODUCTS_PER_CATEGORY = int(os.environ.get("SCRAPER_PRODUCTS_PER_CAT", "200"))
@@ -122,21 +142,30 @@ async def _warmup(page: Page):
 # ─────────────────────────────────────────────────────────────────────────────
 
 async def fetch_root_categories(page: Page) -> List[Dict[str, Any]]:
-    """Достаём дерево категорий через JS-fetch внутри страницы (cookies уже есть)."""
-    raw = await page.evaluate(
-        """
-        async () => {
-          const r = await fetch('https://api.uzum.uz/api/main/root-categories', {
-            credentials: 'include',
-            headers: { 'Accept': 'application/json' }
-          });
-          if (!r.ok) return null;
-          return await r.json();
-        }
-        """
-    )
+    """Достаём дерево категорий через APIRequestContext (минует CORS, идёт через прокси).
+    Если эндпоинт ничего не отдал — возвращаем пустой список (потом scrape_category всё
+    равно работает, мы просто не сохраним красивое дерево)."""
+    raw = None
+    try:
+        # context.request — серверный HTTP через тот же прокси, без браузерного CORS
+        resp = await page.context.request.get(
+            "https://api.uzum.uz/api/main/root-categories",
+            headers={
+                "Accept": "application/json",
+                "Accept-Language": "ru,en;q=0.9",
+                "Referer": "https://uzum.uz/ru",
+            },
+            timeout=30000,
+        )
+        if resp.ok:
+            raw = await resp.json()
+        else:
+            print(f"[scraper] root-categories HTTP {resp.status}", flush=True)
+    except Exception as e:
+        print(f"[scraper] root-categories request error: {e}", flush=True)
+
     if not raw:
-        print("[scraper] root-categories fetch returned null", flush=True)
+        print("[scraper] root-categories empty — будем сканить хардкод-список slug'ов", flush=True)
         return []
     # Структура зависит от API, обычно {payload: [...]} или сразу массив
     items = raw.get("payload") if isinstance(raw, dict) else raw
@@ -311,10 +340,16 @@ async def run_full_scrape(snap: date, save_categories_fn, save_products_fn,
         if cats:
             save_categories_fn(snap, cats)
             stats["categories"] = len(cats)
-
-        # 2. Топ-N категорий 1 уровня (по которым у UZUM большой трафик)
-        # Берём только категории с непустым slug
-        candidates = [c for c in cats if c.get("slug") and c.get("level", 1) <= 2][:TOP_CATEGORIES_LIMIT]
+            # Берём только категории с непустым slug
+            candidates = [c for c in cats if c.get("slug") and c.get("level", 1) <= 2][:TOP_CATEGORIES_LIMIT]
+        else:
+            # Fallback: используем хардкод slug-список
+            print("[scraper] using FALLBACK_CATEGORY_SLUGS", flush=True)
+            candidates = [
+                {"slug": slug, "category_id": -i}
+                for i, slug in enumerate(FALLBACK_CATEGORY_SLUGS, start=1)
+            ][:TOP_CATEGORIES_LIMIT]
+            stats["categories"] = len(candidates)
         print(f"[scraper] scraping {len(candidates)} top categories", flush=True)
 
         seller_titles: Dict[int, str] = {}
