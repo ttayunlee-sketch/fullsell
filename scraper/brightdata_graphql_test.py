@@ -84,7 +84,7 @@ async def main() -> int:
         "method":  "POST",
         "format":  "raw",
         "country": "uz",
-        "headers": [{"name": k, "value": v} for k, v in mobile_headers.items()],
+        "headers": mobile_headers,
         "body":    json.dumps(graphql_body),
     }
 
