@@ -56,13 +56,12 @@ async def main() -> int:
             captured.extend(items)
         page.on("response", on_response)
 
-        print(f"📥 Loading page (max 120s)...")
+        print(f"📥 Loading page (max 180s, wait=networkidle)...")
         try:
-            await page.goto(TEST_URL, timeout=120_000, wait_until="domcontentloaded")
+            # networkidle = ждём пока сеть утихнет (все XHR/fetch завершились)
+            await page.goto(TEST_URL, timeout=180_000, wait_until="networkidle")
         except Exception as e:
-            print(f"❌ goto failed: {e}")
-            await browser.close()
-            return 3
+            print(f"⚠ networkidle timeout, продолжаем: {e}")
 
         print(f"   final URL: {page.url}")
 
@@ -71,16 +70,47 @@ async def main() -> int:
             await browser.close()
             return 4
 
-        # Скроллим чтобы догрузить
+        # Дополнительно ждём 15с чтобы SPA точно отрисовалась
+        print("⏳ Waiting 15s for SPA render...")
+        await page.wait_for_timeout(15_000)
+
+        # Скроллим чтобы догрузить остальное
         print("📜 Scrolling 5x...")
         for _ in range(5):
             try:
                 await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             except Exception:
                 break
-            await page.wait_for_timeout(1500)
+            await page.wait_for_timeout(2000)
 
-        await page.wait_for_timeout(3000)
+        # Финальный wait
+        await page.wait_for_timeout(5000)
+
+        # Screenshot для визуальной диагностики
+        try:
+            await page.screenshot(path="/state/uzum_brightdata_browser.png", full_page=False)
+            print(f"📸 Screenshot saved to /state/uzum_brightdata_browser.png")
+        except Exception as e:
+            print(f"⚠ screenshot failed: {e}")
+
+        # Извлекаем продукты прямо из DOM через querySelectorAll
+        try:
+            dom_products = await page.evaluate("""
+                () => {
+                  const cards = document.querySelectorAll('[class*="product"], [class*="card"], [data-test-id*="product"]');
+                  return Array.from(cards).slice(0, 5).map(c => ({
+                    tag: c.tagName,
+                    classes: c.className,
+                    text: (c.innerText || '').substring(0, 100),
+                  }));
+                }
+            """)
+            if dom_products:
+                print(f"🏗 DOM cards found: {len(dom_products)}")
+                for p in dom_products[:3]:
+                    print(f"   {p}")
+        except Exception as e:
+            print(f"⚠ DOM query error: {e}")
 
         html = await page.content()
         try:
