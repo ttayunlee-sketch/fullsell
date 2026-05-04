@@ -18,7 +18,7 @@ from uzum import (
     debug_finance_orders, debug_ad_campaigns,
     get_ad_campaigns, get_boost_orders_products, get_ad_campaign_stats,
 )
-from ai import ask as ai_ask, audit_product, promotion_strategy
+from ai import ask as ai_ask, audit_product, promotion_strategy, promo_keywords_recommendations
 import market
 
 _AUDIT_CACHE = {}  # (shop_id, product_id) -> (timestamp, text)
@@ -628,6 +628,59 @@ async def promo_strategy(cid: int, session: str = Cookie(default=None)):
     text = promotion_strategy(dict(client), products, finance, segments)
     _PROMO_AI_CACHE[client["shop_id"]] = (_t.time(), text)
     return JSONResponse({"strategy": text, "cached": False})
+
+
+_KEYWORDS_AI_CACHE = {}  # shop_id -> (ts, dict)
+
+
+@app.post("/shop/{cid}/promo/keywords")
+async def promo_keywords(cid: int, session: str = Cookie(default=None)):
+    """AI-рекомендации ключей и минус-слов в стиле ZoomSelling-AI."""
+    import time as _t
+    if not _auth(session):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    client = get_client(cid)
+    if not client:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+
+    cached = _KEYWORDS_AI_CACHE.get(client["shop_id"])
+    if cached and _t.time() - cached[0] < 3600:  # 1 час
+        return JSONResponse({**cached[1], "cached": True})
+
+    products = get_products(client["api_key"], client["shop_id"])
+    for p in products:
+        _normalize(p)
+
+    # Активные РК (если есть токен кабинета)
+    ad_campaigns = []
+    try:
+        seller_id = None
+        try:
+            seller_id = client["seller_id"]
+        except (KeyError, TypeError):
+            pass
+        if seller_id:
+            sid = int(seller_id)
+            tok = get_cabinet_token(sid)
+            if tok and tok.get("token"):
+                res = get_ad_campaigns(tok["token"], sid, days=30)
+                ad_campaigns = res.get("items") or []
+                if ad_campaigns:
+                    try:
+                        ids = [c.get("id") for c in ad_campaigns if c.get("id")]
+                        ad_stats = get_ad_campaign_stats(tok["token"], ids, days=30) or {}
+                        for c in ad_campaigns:
+                            c["stats"] = ad_stats.get(str(c.get("id")), {}) or {}
+                    except Exception:
+                        pass
+    except Exception:
+        pass
+
+    result = promo_keywords_recommendations(dict(client), products, ad_campaigns)
+    if "error" in result:
+        return JSONResponse(result, status_code=500)
+    _KEYWORDS_AI_CACHE[client["shop_id"]] = (_t.time(), result)
+    return JSONResponse({**result, "cached": False})
 
 
 class ExtTokenBody(BaseModel):

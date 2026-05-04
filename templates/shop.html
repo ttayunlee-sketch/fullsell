@@ -559,6 +559,65 @@
     <div id="promo-output" style="color:#fff;white-space:pre-wrap;line-height:1.75;font-size:.88rem;max-height:520px;overflow-y:auto;"></div>
   </div>
 
+  <!-- AI-рекомендации ключей (ZoomSelling-AI стиль) -->
+  <div class="card-dark mb-3" style="border:1px solid #353c5c;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+      <div style="width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,#86efac,#34d399);display:flex;align-items:center;justify-content:center;font-size:1.1rem;">🔑</div>
+      <div style="flex:1;">
+        <div style="color:#fff;font-weight:600;font-size:.95rem;">AI-рекомендации ключей и минус-слов</div>
+        <div style="color:#cbd5e1;font-size:.78rem;">Готовый список ключевых запросов и минус-слов для рекламной кампании</div>
+      </div>
+      <button onclick="loadPromoKeywords()" id="kw-btn" class="btn btn-primary btn-sm">🚀 Сгенерировать ключи</button>
+    </div>
+    <div id="kw-status" style="color:#cbd5e1;font-size:.85rem;margin-bottom:12px;"></div>
+    <div id="kw-output" style="display:none;">
+      <ul class="nav nav-tabs" style="border-bottom:1px solid #353c5c;margin-bottom:14px;">
+        <li class="nav-item"><a class="nav-link active" id="kw-tab-target" href="#" onclick="kwTab('target',this);return false;" style="background:transparent;border:none;color:#a5b4fc;font-size:.85rem;border-bottom:2px solid #a5b4fc;">🎯 Целевые ключи (<span id="kw-cnt-target">0</span>)</a></li>
+        <li class="nav-item"><a class="nav-link" id="kw-tab-minus" href="#" onclick="kwTab('minus',this);return false;" style="background:transparent;border:none;color:#cbd5e1;font-size:.85rem;">🚫 Минус-слова (<span id="kw-cnt-minus">0</span>)</a></li>
+      </ul>
+
+      <div id="kw-pane-target" style="display:block;">
+        <div style="color:#cbd5e1;font-size:.78rem;margin-bottom:10px;">Эти запросы — то, по чему стоит запускать рекламу. <span style="color:#86efac;">1 — Целевые</span> точно соответствуют товару, <span style="color:#a5b4fc;">2 — Широкие</span> дают охват.</div>
+        <div style="overflow-x:auto;border:1px solid #1e2236;border-radius:8px;">
+          <table class="table table-dark table-sm mb-0" style="font-size:.85rem;">
+            <thead style="background:#0d1019;">
+              <tr style="color:#cbd5e1;">
+                <th style="border-color:#1e2236;font-weight:500;padding:10px 12px;">Ключевой запрос</th>
+                <th style="border-color:#1e2236;font-weight:500;padding:10px 12px;width:160px;">Приоритет</th>
+                <th style="border-color:#1e2236;font-weight:500;padding:10px 12px;">Почему</th>
+              </tr>
+            </thead>
+            <tbody id="kw-table-target"></tbody>
+          </table>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button onclick="copyKw('target')" class="btn btn-sm btn-outline-light" style="font-size:.78rem;">📋 Копировать список</button>
+          <button onclick="downloadKw('target')" class="btn btn-sm btn-outline-light" style="font-size:.78rem;">⬇ CSV</button>
+        </div>
+      </div>
+
+      <div id="kw-pane-minus" style="display:none;">
+        <div style="color:#cbd5e1;font-size:.78rem;margin-bottom:10px;">Эти запросы стоит исключить из РК — нерелевантные товары, чужие бренды, смежные категории.</div>
+        <div style="overflow-x:auto;border:1px solid #1e2236;border-radius:8px;">
+          <table class="table table-dark table-sm mb-0" style="font-size:.85rem;">
+            <thead style="background:#0d1019;">
+              <tr style="color:#cbd5e1;">
+                <th style="border-color:#1e2236;font-weight:500;padding:10px 12px;">Запрос</th>
+                <th style="border-color:#1e2236;font-weight:500;padding:10px 12px;">Рекомендация ИИ (RU)</th>
+                <th style="border-color:#1e2236;font-weight:500;padding:10px 12px;">Tavsiya (UZ)</th>
+              </tr>
+            </thead>
+            <tbody id="kw-table-minus"></tbody>
+          </table>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button onclick="copyKw('minus')" class="btn btn-sm btn-outline-light" style="font-size:.78rem;">📋 Копировать список</button>
+          <button onclick="downloadKw('minus')" class="btn btn-sm btn-outline-light" style="font-size:.78rem;">⬇ CSV</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="row g-3">
     <div class="col-lg-6">
       {{ seg_card(promo.pearls, "💎 Жемчужины — продвигать!", "Высокая конверсия, мало показов. Реклама даст быстрый прирост", "#a5b4fc", "+ В рекламу") }}
@@ -663,6 +722,115 @@ async function loadPromoStrategy() {
     const d = await r.json();
     out.textContent = d.strategy || d.error || 'Пустой ответ';
   } catch(e) { out.textContent = 'Ошибка: ' + e; }
+  btn.disabled = false;
+  btn.textContent = '🔄 Перегенерировать';
+}
+
+let kwData = { target_keywords: [], minus_words: [] };
+
+function kwTab(name, el) {
+  ['target','minus'].forEach(n => {
+    const tab  = document.getElementById('kw-tab-' + n);
+    const pane = document.getElementById('kw-pane-' + n);
+    if (n === name) {
+      tab.style.color = '#a5b4fc';
+      tab.style.borderBottom = '2px solid #a5b4fc';
+      pane.style.display = 'block';
+    } else {
+      tab.style.color = '#cbd5e1';
+      tab.style.borderBottom = 'none';
+      pane.style.display = 'none';
+    }
+  });
+}
+
+function escHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function renderKw(data) {
+  kwData = data;
+  const tg = data.target_keywords || [];
+  const ms = data.minus_words || [];
+  document.getElementById('kw-cnt-target').textContent = tg.length;
+  document.getElementById('kw-cnt-minus').textContent = ms.length;
+
+  const tbT = document.getElementById('kw-table-target');
+  tbT.innerHTML = tg.map(k => {
+    const pr  = String(k.priority || '2').trim();
+    const isP1 = pr.startsWith('1');
+    const badge = isP1
+      ? '<span style="background:rgba(134,239,172,.15);color:#86efac;padding:3px 9px;border-radius:6px;font-size:.74rem;border:1px solid rgba(134,239,172,.35);">1 — Целевые</span>'
+      : '<span style="background:rgba(165,180,252,.15);color:#a5b4fc;padding:3px 9px;border-radius:6px;font-size:.74rem;border:1px solid rgba(165,180,252,.35);">2 — Широкие</span>';
+    return `<tr>
+      <td style="border-color:#1e2236;padding:9px 12px;color:#fff;">${escHtml(k.query)}</td>
+      <td style="border-color:#1e2236;padding:9px 12px;">${badge}</td>
+      <td style="border-color:#1e2236;padding:9px 12px;color:#cbd5e1;font-size:.8rem;">${escHtml(k.reason || '')}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="3" style="border-color:#1e2236;padding:14px;text-align:center;color:#94a3b8;">— нет данных —</td></tr>';
+
+  const tbM = document.getElementById('kw-table-minus');
+  tbM.innerHTML = ms.map(k => `<tr>
+      <td style="border-color:#1e2236;padding:9px 12px;color:#fff;">${escHtml(k.query)}</td>
+      <td style="border-color:#1e2236;padding:9px 12px;color:#cbd5e1;font-size:.8rem;">${escHtml(k.rationale_ru || '')}</td>
+      <td style="border-color:#1e2236;padding:9px 12px;color:#94a3b8;font-size:.8rem;">${escHtml(k.rationale_uz || '')}</td>
+    </tr>`).join('') || '<tr><td colspan="3" style="border-color:#1e2236;padding:14px;text-align:center;color:#94a3b8;">— нет данных —</td></tr>';
+}
+
+function copyKw(kind) {
+  const arr = kind === 'target' ? (kwData.target_keywords || []) : (kwData.minus_words || []);
+  const text = arr.map(k => k.query).filter(Boolean).join('\n');
+  navigator.clipboard.writeText(text).then(() => {
+    alert('✅ Скопировано: ' + arr.length + ' запросов');
+  }).catch(e => alert('Ошибка: ' + e));
+}
+
+function downloadKw(kind) {
+  const arr = kind === 'target' ? (kwData.target_keywords || []) : (kwData.minus_words || []);
+  let csv = '';
+  if (kind === 'target') {
+    csv = 'Ключевой запрос;Приоритет;Почему\n' +
+      arr.map(k => `"${(k.query||'').replace(/"/g,'""')}";"${(k.priority||'').replace(/"/g,'""')}";"${(k.reason||'').replace(/"/g,'""')}"`).join('\n');
+  } else {
+    csv = 'Ключевой запрос;Рекомендация ИИ (RU);Рекомендация ИИ (UZ)\n' +
+      arr.map(k => `"${(k.query||'').replace(/"/g,'""')}";"${(k.rationale_ru||'').replace(/"/g,'""')}";"${(k.rationale_uz||'').replace(/"/g,'""')}"`).join('\n');
+  }
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = (kind === 'target' ? 'target_keywords' : 'minus_words') + '.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+async function loadPromoKeywords() {
+  const btn    = document.getElementById('kw-btn');
+  const status = document.getElementById('kw-status');
+  const out    = document.getElementById('kw-output');
+  btn.disabled = true;
+  btn.textContent = '🔍 Анализирую...';
+  status.style.color = '#cbd5e1';
+  status.textContent = 'AI смотрит ассортимент магазина и активные РК, подбирает ключи и минус-слова — это ~15-20 секунд...';
+  out.style.display = 'none';
+  try {
+    const r = await fetch('/shop/{{ client.id }}/promo/keywords', {method:'POST'});
+    const d = await r.json();
+    if (d.error) {
+      status.style.color = '#f87171';
+      status.textContent = 'Ошибка: ' + d.error;
+    } else {
+      renderKw(d);
+      out.style.display = 'block';
+      status.textContent = (d.cached ? '✅ Из кэша. ' : '✅ Готово. ') +
+        'Целевых: ' + (d.target_keywords||[]).length +
+        ', минус-слов: ' + (d.minus_words||[]).length;
+    }
+  } catch(e) {
+    status.style.color = '#f87171';
+    status.textContent = 'Ошибка: ' + e;
+  }
   btn.disabled = false;
   btn.textContent = '🔄 Перегенерировать';
 }
