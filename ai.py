@@ -157,35 +157,79 @@ def promotion_strategy(client: dict, products: list, finance: dict, segments: di
 
 _KEYWORDS_SYSTEM = (
     "Ты — эксперт по рекламе на UZUM Market (Узбекистан). "
-    "Твоя задача — собрать рекомендации по ключевым словам для рекламной кампании магазина. "
-    "На основе ассортимента магазина и активных РК ты должен сформировать ДВА списка:\n"
-    "1) Целевые ключевые запросы для запуска РК (конкретные товары, бренды, синонимы, нишевые запросы).\n"
-    "2) Минус-слова (запросы, которые НЕ подходят, чтобы исключить их из РК).\n\n"
-    "Учитывай реалии Узбекистана и UZUM:\n"
-    "- Покупатели ищут на русском языке преимущественно (но и на узбекском бывает)\n"
-    "- В нишах часто пересекаются смежные товары — их нужно отсеять\n"
-    "- Бренды-конкуренты, нерелевантные характеристики, размеры/цвета, которых нет в наличии — это минус-слова\n\n"
-    "Формат ответа — СТРОГО JSON, никаких markdown-блоков, никакого текста вокруг.\n"
-    "Не добавляй комментарии, не оборачивай в ```json. Только чистый JSON-объект:\n"
-    "{\n"
-    "  \"target_keywords\": [\n"
-    "    {\"query\": \"clio kill cover\", \"priority\": \"1\", \"reason\": \"точное название бренда+товара\"},\n"
-    "    {\"query\": \"консилер для лица\", \"priority\": \"2\", \"reason\": \"общая категория, широкий охват\"}\n"
-    "  ],\n"
-    "  \"minus_words\": [\n"
-    "    {\"query\": \"la roche posay\", \"rationale_ru\": \"Нецелевой бренд\", \"rationale_uz\": \"Maqsadli boʻlmagan brend\"},\n"
-    "    {\"query\": \"контуринг\", \"rationale_ru\": \"⚠️ Требует проверки (Смежный товар)\", \"rationale_uz\": \"⚠️ Tekshirishni talab qiladi\"}\n"
-    "  ]\n"
-    "}\n\n"
-    "Приоритеты целевых ключей:\n"
-    "  \"1\" = Целевые (Dolzarb) — точное соответствие товару, бренду, модели\n"
-    "  \"2\" = Широкие (Keng) — общие категории, широкие синонимы\n\n"
-    "Дай 25-40 целевых ключей и 60-150 минус-слов. Будь конкретен."
+    "Твоя задача — на основе ассортимента магазина и активных РК сформировать рекомендации "
+    "ключевых запросов и минус-слов для рекламной кампании. "
+    "Учитывай: покупатели ищут преимущественно на русском (узбекский тоже встречается); "
+    "в нишах часто пересекаются смежные товары — их надо отсеять; "
+    "бренды-конкуренты, нерелевантные характеристики, отсутствующие размеры/цвета — это минус-слова. "
+    "Дай 25-40 целевых ключей и 60-150 минус-слов. Используй ТОЛЬКО предоставленный инструмент "
+    "submit_recommendations для возврата результата."
 )
 
 
+# JSON-схема для tool_use — Claude гарантирует валидную структуру
+_KEYWORDS_TOOL = {
+    "name": "submit_recommendations",
+    "description": (
+        "Возвращает рекомендации по ключевым запросам и минус-словам для рекламной кампании "
+        "на UZUM Market в формате ZoomSelling-AI."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "target_keywords": {
+                "type": "array",
+                "description": "Целевые ключевые запросы для запуска РК (25-40 штук).",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "Сам ключевой запрос как пользователь вводит в поиск UZUM.",
+                        },
+                        "priority": {
+                            "type": "string",
+                            "enum": ["1", "2"],
+                            "description": "1 = Целевые (Dolzarb) — точное соответствие; 2 = Широкие (Keng) — общая категория.",
+                        },
+                        "reason": {
+                            "type": "string",
+                            "description": "Краткое (до 80 символов) обоснование на русском.",
+                        },
+                    },
+                    "required": ["query", "priority", "reason"],
+                },
+            },
+            "minus_words": {
+                "type": "array",
+                "description": "Запросы, которые надо исключить из РК (60-150 штук).",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "Ключевой запрос для исключения."},
+                        "rationale_ru": {
+                            "type": "string",
+                            "description": "Краткая причина на русском (например: 'Нецелевой бренд', '⚠️ Требует проверки (Смежный товар)').",
+                        },
+                        "rationale_uz": {
+                            "type": "string",
+                            "description": "Та же причина на узбекском (например: 'Maqsadli boʻlmagan brend').",
+                        },
+                    },
+                    "required": ["query", "rationale_ru", "rationale_uz"],
+                },
+            },
+        },
+        "required": ["target_keywords", "minus_words"],
+    },
+}
+
+
 def promo_keywords_recommendations(client: dict, products: list, ad_campaigns: list = None) -> dict:
-    """Возвращает структурированный JSON с рекомендациями ключей и минус-слов в стиле ZoomSelling-AI."""
+    """Возвращает структурированный JSON с рекомендациями ключей и минус-слов в стиле ZoomSelling-AI.
+
+    Использует Claude tool_use API — гарантирует валидную JSON-схему ответа.
+    """
     if not ANTHROPIC_API_KEY:
         return {"error": "ANTHROPIC_API_KEY не задан"}
 
@@ -237,7 +281,7 @@ def promo_keywords_recommendations(client: dict, products: list, ad_campaigns: l
         ]
     parts += [
         "",
-        "На основе ассортимента и активных РК сформируй target_keywords и minus_words как описано в системном промпте. Только JSON.",
+        "Сформируй target_keywords и minus_words и отправь через submit_recommendations.",
     ]
     prompt = "\n".join(parts)
 
@@ -245,33 +289,23 @@ def promo_keywords_recommendations(client: dict, products: list, ad_campaigns: l
         ai = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
         message = ai.messages.create(
             model="claude-sonnet-4-5-20250929",
-            max_tokens=4096,
+            max_tokens=8192,
             system=_KEYWORDS_SYSTEM,
+            tools=[_KEYWORDS_TOOL],
+            tool_choice={"type": "tool", "name": "submit_recommendations"},
             messages=[{"role": "user", "content": prompt}],
         )
-        text = message.content[0].text.strip()
-        # На всякий случай чистим markdown-обёртку, если AI всё-таки её добавил
-        if text.startswith("```"):
-            text = text.split("```", 2)[1]
-            if text.lower().startswith("json"):
-                text = text[4:].lstrip()
-        text = text.strip().rstrip("`").strip()
-        try:
-            data = _json.loads(text)
-        except _json.JSONDecodeError:
-            # Иногда модель возвращает несколько JSON-кусков — берём первый блок
-            start = text.find("{")
-            end   = text.rfind("}")
-            if start >= 0 and end > start:
-                data = _json.loads(text[start:end + 1])
-            else:
-                return {"error": "AI вернул не-JSON", "raw": text[:600]}
-        targets = data.get("target_keywords") or []
-        minus   = data.get("minus_words") or []
-        # Нормализуем
-        for t in targets:
-            t["priority"] = str(t.get("priority", "")).strip() or "2"
-        return {"target_keywords": targets, "minus_words": minus}
+        # Извлекаем tool_use результат — это уже валидный dict, парсить JSON не нужно
+        for block in message.content:
+            if getattr(block, "type", None) == "tool_use" and getattr(block, "name", "") == "submit_recommendations":
+                data = block.input or {}
+                targets = data.get("target_keywords") or []
+                minus   = data.get("minus_words") or []
+                # Нормализуем priority — на всякий случай приводим к строке
+                for t in targets:
+                    t["priority"] = str(t.get("priority", "")).strip() or "2"
+                return {"target_keywords": targets, "minus_words": minus}
+        return {"error": "AI не вернул tool_use блок"}
     except Exception as e:
         return {"error": f"Ошибка AI: {e}"}
 
