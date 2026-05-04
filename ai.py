@@ -156,14 +156,23 @@ def promotion_strategy(client: dict, products: list, finance: dict, segments: di
 
 
 _KEYWORDS_SYSTEM = (
-    "Ты — эксперт по рекламе на UZUM Market (Узбекистан). "
-    "Твоя задача — на основе ассортимента магазина и активных РК сформировать рекомендации "
-    "ключевых запросов и минус-слов для рекламной кампании. "
-    "Учитывай: покупатели ищут преимущественно на русском (узбекский тоже встречается); "
-    "в нишах часто пересекаются смежные товары — их надо отсеять; "
-    "бренды-конкуренты, нерелевантные характеристики, отсутствующие размеры/цвета — это минус-слова. "
-    "Дай 25-40 целевых ключей и 60-150 минус-слов. Используй ТОЛЬКО предоставленный инструмент "
-    "submit_recommendations для возврата результата."
+    "Ты — эксперт по рекламе на UZUM Market (Узбекистан) в стиле ZoomSelling-AI. "
+    "Тебе дают карточку ОДНОГО товара (название, цена, категория, описание, фото). "
+    "Твоя задача — собрать УЗКИЙ, специфичный для этого товара список запросов:\n"
+    "  1) target_keywords — по чему запускать рекламу именно на ЭТОТ товар:\n"
+    "     - точное название бренда+модели (приоритет 1 — Целевые/Dolzarb)\n"
+    "     - категория и широкие синонимы для охвата (приоритет 2 — Широкие/Keng)\n"
+    "     - реальные пользовательские запросы как пишут в поиске UZUM\n"
+    "  2) minus_words — запросы которые ОБЯЗАТЕЛЬНО исключить:\n"
+    "     - чужие бренды-конкуренты (например: la roche posay для CLIO)\n"
+    "     - смежные товары той же категории но другого назначения\n"
+    "     - размеры/объёмы/цвета которых нет в этом конкретном товаре\n"
+    "     - нерелевантные характеристики\n\n"
+    "Реалии: покупатели UZUM ищут на русском, иногда на узбекском (lat/cyr). "
+    "Бренды и модели часто пишут латиницей и кириллицей — учти варианты. "
+    "Если фото товара показано — используй его для уточнения характеристик (цвет, форма, тип). "
+    "Будь МАКСИМАЛЬНО узким и предметным. Не давай общих фраз. "
+    "Верни 25-40 target_keywords и 60-150 minus_words через submit_recommendations."
 )
 
 
@@ -171,15 +180,15 @@ _KEYWORDS_SYSTEM = (
 _KEYWORDS_TOOL = {
     "name": "submit_recommendations",
     "description": (
-        "Возвращает рекомендации по ключевым запросам и минус-словам для рекламной кампании "
-        "на UZUM Market в формате ZoomSelling-AI."
+        "Возвращает узкий, специфичный для одного товара набор ключевых запросов и минус-слов "
+        "для рекламной кампании на UZUM Market в формате ZoomSelling-AI."
     ),
     "input_schema": {
         "type": "object",
         "properties": {
             "target_keywords": {
                 "type": "array",
-                "description": "Целевые ключевые запросы для запуска РК (25-40 штук).",
+                "description": "Целевые ключевые запросы по этому товару (25-40 штук).",
                 "items": {
                     "type": "object",
                     "properties": {
@@ -202,7 +211,7 @@ _KEYWORDS_TOOL = {
             },
             "minus_words": {
                 "type": "array",
-                "description": "Запросы, которые надо исключить из РК (60-150 штук).",
+                "description": "Запросы, которые надо исключить из РК этого товара (60-150 штук).",
                 "items": {
                     "type": "object",
                     "properties": {
@@ -225,65 +234,48 @@ _KEYWORDS_TOOL = {
 }
 
 
-def promo_keywords_recommendations(client: dict, products: list, ad_campaigns: list = None) -> dict:
-    """Возвращает структурированный JSON с рекомендациями ключей и минус-слов в стиле ZoomSelling-AI.
+def keywords_for_product(product: dict, shop_name: str = "") -> dict:
+    """Возвращает узкий список ключей и минус-слов СПЕЦИФИЧНО для одного товара (как ZoomSelling-AI).
 
-    Использует Claude tool_use API — гарантирует валидную JSON-схему ответа.
+    Использует Claude tool_use API + vision (если есть фото) — гарантирует валидный JSON.
     """
     if not ANTHROPIC_API_KEY:
         return {"error": "ANTHROPIC_API_KEY не задан"}
 
-    ad_campaigns = ad_campaigns or []
+    title  = product.get("title_norm") or product.get("title") or "—"
+    price  = product.get("price_norm") or product.get("price") or 0
+    rating = product.get("rating_norm") or product.get("rating") or 0
+    image  = product.get("image_url") or ""
+    cat    = ""
+    try:
+        cat = (product.get("category") or {}).get("title", {}) or {}
+        cat = cat.get("ru", "") if isinstance(cat, dict) else str(cat or "")
+    except Exception:
+        cat = ""
+    desc = product.get("description") or product.get("descriptionRu") or ""
+    if isinstance(desc, dict):
+        desc = desc.get("ru") or desc.get("value") or ""
+    desc = (str(desc) or "").strip()[:1200]
 
-    # Собираем данные о товарах — что продаётся в магазине
-    product_lines = []
-    for p in products[:60]:
-        title  = (p.get("title") or "—")[:80]
-        price  = p.get("price") or 0
-        rating = p.get("rating") or 0
-        views  = p.get("viewers") or 0
-        cat    = ""
-        try:
-            cat = (p.get("category") or {}).get("title", {}) or {}
-            cat = cat.get("ru", "") if isinstance(cat, dict) else str(cat or "")
-        except Exception:
-            cat = ""
-        product_lines.append(
-            f"  • {title} | категория: {cat[:40]} | {price:,} сум | рейтинг {rating} | просмотры {views:,}"
-        )
+    text_block = (
+        f"Магазин: {shop_name or '—'}\n"
+        f"Карточка товара (для генерации узких ключей):\n"
+        f"  Название: {title}\n"
+        f"  Категория: {cat or '—'}\n"
+        f"  Цена: {price:,} сум\n"
+        f"  Рейтинг: {rating} / 5\n"
+        f"  Описание: {desc or '— нет описания —'}\n\n"
+        "Сгенерируй СПЕЦИФИЧНЫЕ для этого товара target_keywords и minus_words "
+        "и отправь через submit_recommendations. Учитывай фото, если оно прикреплено."
+    )
 
-    # Активные РК — какие ключи уже идут
-    campaigns_lines = []
-    if ad_campaigns:
-        for c in ad_campaigns[:25]:
-            cname  = (c.get("name") or c.get("title") or "—")[:60]
-            status = c.get("status") or "—"
-            stats  = c.get("stats") or {}
-            impressions = stats.get("impressions") or 0
-            clicks      = stats.get("clicks") or 0
-            crr         = stats.get("crr") or 0
-            campaigns_lines.append(
-                f"  • {cname} | {status} | показы {impressions:,} | клики {clicks:,} | CRR {crr}%"
-            )
-
-    parts = [
-        f"Магазин: {client.get('name','—')} (Shop ID: {client.get('shop_id','—')})",
-        f"Всего товаров: {len(products)}",
-        "",
-        "АССОРТИМЕНТ МАГАЗИНА (выборка):",
-        *product_lines,
-    ]
-    if campaigns_lines:
-        parts += [
-            "",
-            "АКТИВНЫЕ РЕКЛАМНЫЕ КАМПАНИИ:",
-            *campaigns_lines,
-        ]
-    parts += [
-        "",
-        "Сформируй target_keywords и minus_words и отправь через submit_recommendations.",
-    ]
-    prompt = "\n".join(parts)
+    content = []
+    if image and image.startswith("http"):
+        content.append({
+            "type": "image",
+            "source": {"type": "url", "url": image},
+        })
+    content.append({"type": "text", "text": text_block})
 
     try:
         ai = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
@@ -293,20 +285,40 @@ def promo_keywords_recommendations(client: dict, products: list, ad_campaigns: l
             system=_KEYWORDS_SYSTEM,
             tools=[_KEYWORDS_TOOL],
             tool_choice={"type": "tool", "name": "submit_recommendations"},
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{"role": "user", "content": content}],
         )
-        # Извлекаем tool_use результат — это уже валидный dict, парсить JSON не нужно
         for block in message.content:
             if getattr(block, "type", None) == "tool_use" and getattr(block, "name", "") == "submit_recommendations":
                 data = block.input or {}
                 targets = data.get("target_keywords") or []
                 minus   = data.get("minus_words") or []
-                # Нормализуем priority — на всякий случай приводим к строке
                 for t in targets:
                     t["priority"] = str(t.get("priority", "")).strip() or "2"
                 return {"target_keywords": targets, "minus_words": minus}
         return {"error": "AI не вернул tool_use блок"}
     except Exception as e:
+        # Если упали с vision — пробуем без картинки
+        if image:
+            try:
+                ai = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+                message = ai.messages.create(
+                    model="claude-sonnet-4-5-20250929",
+                    max_tokens=8192,
+                    system=_KEYWORDS_SYSTEM,
+                    tools=[_KEYWORDS_TOOL],
+                    tool_choice={"type": "tool", "name": "submit_recommendations"},
+                    messages=[{"role": "user", "content": text_block}],
+                )
+                for block in message.content:
+                    if getattr(block, "type", None) == "tool_use" and getattr(block, "name", "") == "submit_recommendations":
+                        data = block.input or {}
+                        targets = data.get("target_keywords") or []
+                        minus   = data.get("minus_words") or []
+                        for t in targets:
+                            t["priority"] = str(t.get("priority", "")).strip() or "2"
+                        return {"target_keywords": targets, "minus_words": minus}
+            except Exception as e2:
+                return {"error": f"Ошибка AI: {e2}"}
         return {"error": f"Ошибка AI: {e}"}
 
 

@@ -514,10 +514,8 @@
       {% if items %}
       <div style="display:flex;flex-direction:column;gap:8px;">
         {% for r in items %}
-        <div onclick="auditProduct('{{ r.pid }}', '{{ r.title[:55]|replace("'", "\\'") }}', '{{ r.image_url }}')"
-             style="display:flex;align-items:center;gap:12px;padding:10px;background:var(--card2);border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:border-color .15s;"
-             onmouseover="this.style.borderColor='#a5b4fc'" onmouseout="this.style.borderColor='var(--border)'"
-             title="Клик — AI-аудит карточки">
+        <div style="display:flex;align-items:center;gap:12px;padding:10px;background:var(--card2);border:1px solid var(--border);border-radius:10px;transition:border-color .15s;"
+             onmouseover="this.style.borderColor='#a5b4fc'" onmouseout="this.style.borderColor='var(--border)'">
           {% if r.image_url %}
             <img src="{{ r.image_url }}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0;" referrerpolicy="no-referrer" onerror="this.style.opacity='.3'">
           {% else %}
@@ -536,6 +534,14 @@
           <div style="text-align:right;flex-shrink:0;">
             <div style="color:#fff;font-weight:600;font-size:.88rem;white-space:nowrap;">{{ "{:,}".format(r.revenue|int) }}</div>
             <div style="color:#cbd5e1;font-size:.72rem;">сум</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
+            <button onclick="auditProduct('{{ r.pid }}', '{{ r.title[:55]|replace("'", "\\'") }}', '{{ r.image_url }}')"
+                    title="AI-аудит карточки"
+                    style="background:rgba(165,180,252,.12);border:1px solid rgba(165,180,252,.35);color:#a5b4fc;padding:5px 10px;border-radius:7px;font-size:.74rem;cursor:pointer;white-space:nowrap;">🤖 Аудит</button>
+            <button onclick="loadKeywords('{{ r.pid }}', '{{ r.title[:55]|replace("'", "\\'") }}', '{{ r.image_url }}')"
+                    title="AI-ключи и минус-слова для этого товара"
+                    style="background:rgba(134,239,172,.12);border:1px solid rgba(134,239,172,.35);color:#86efac;padding:5px 10px;border-radius:7px;font-size:.74rem;cursor:pointer;white-space:nowrap;">🔑 Ключи</button>
           </div>
         </div>
         {% endfor %}
@@ -557,65 +563,6 @@
       <button onclick="loadPromoStrategy()" id="promo-btn" class="btn btn-primary btn-sm">🚀 Сгенерировать план</button>
     </div>
     <div id="promo-output" style="color:#fff;white-space:pre-wrap;line-height:1.75;font-size:.88rem;max-height:520px;overflow-y:auto;"></div>
-  </div>
-
-  <!-- AI-рекомендации ключей (ZoomSelling-AI стиль) -->
-  <div class="card-dark mb-3" style="border:1px solid #353c5c;">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-      <div style="width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,#86efac,#34d399);display:flex;align-items:center;justify-content:center;font-size:1.1rem;">🔑</div>
-      <div style="flex:1;">
-        <div style="color:#fff;font-weight:600;font-size:.95rem;">AI-рекомендации ключей и минус-слов</div>
-        <div style="color:#cbd5e1;font-size:.78rem;">Готовый список ключевых запросов и минус-слов для рекламной кампании</div>
-      </div>
-      <button onclick="loadPromoKeywords()" id="kw-btn" class="btn btn-primary btn-sm">🚀 Сгенерировать ключи</button>
-    </div>
-    <div id="kw-status" style="color:#cbd5e1;font-size:.85rem;margin-bottom:12px;"></div>
-    <div id="kw-output" style="display:none;">
-      <ul class="nav nav-tabs" style="border-bottom:1px solid #353c5c;margin-bottom:14px;">
-        <li class="nav-item"><a class="nav-link active" id="kw-tab-target" href="#" onclick="kwTab('target',this);return false;" style="background:transparent;border:none;color:#a5b4fc;font-size:.85rem;border-bottom:2px solid #a5b4fc;">🎯 Целевые ключи (<span id="kw-cnt-target">0</span>)</a></li>
-        <li class="nav-item"><a class="nav-link" id="kw-tab-minus" href="#" onclick="kwTab('minus',this);return false;" style="background:transparent;border:none;color:#cbd5e1;font-size:.85rem;">🚫 Минус-слова (<span id="kw-cnt-minus">0</span>)</a></li>
-      </ul>
-
-      <div id="kw-pane-target" style="display:block;">
-        <div style="color:#cbd5e1;font-size:.78rem;margin-bottom:10px;">Эти запросы — то, по чему стоит запускать рекламу. <span style="color:#86efac;">1 — Целевые</span> точно соответствуют товару, <span style="color:#a5b4fc;">2 — Широкие</span> дают охват.</div>
-        <div style="overflow-x:auto;border:1px solid #1e2236;border-radius:8px;">
-          <table class="table table-dark table-sm mb-0" style="font-size:.85rem;">
-            <thead style="background:#0d1019;">
-              <tr style="color:#cbd5e1;">
-                <th style="border-color:#1e2236;font-weight:500;padding:10px 12px;">Ключевой запрос</th>
-                <th style="border-color:#1e2236;font-weight:500;padding:10px 12px;width:160px;">Приоритет</th>
-                <th style="border-color:#1e2236;font-weight:500;padding:10px 12px;">Почему</th>
-              </tr>
-            </thead>
-            <tbody id="kw-table-target"></tbody>
-          </table>
-        </div>
-        <div style="display:flex;gap:8px;margin-top:10px;">
-          <button onclick="copyKw('target')" class="btn btn-sm btn-outline-light" style="font-size:.78rem;">📋 Копировать список</button>
-          <button onclick="downloadKw('target')" class="btn btn-sm btn-outline-light" style="font-size:.78rem;">⬇ CSV</button>
-        </div>
-      </div>
-
-      <div id="kw-pane-minus" style="display:none;">
-        <div style="color:#cbd5e1;font-size:.78rem;margin-bottom:10px;">Эти запросы стоит исключить из РК — нерелевантные товары, чужие бренды, смежные категории.</div>
-        <div style="overflow-x:auto;border:1px solid #1e2236;border-radius:8px;">
-          <table class="table table-dark table-sm mb-0" style="font-size:.85rem;">
-            <thead style="background:#0d1019;">
-              <tr style="color:#cbd5e1;">
-                <th style="border-color:#1e2236;font-weight:500;padding:10px 12px;">Запрос</th>
-                <th style="border-color:#1e2236;font-weight:500;padding:10px 12px;">Рекомендация ИИ (RU)</th>
-                <th style="border-color:#1e2236;font-weight:500;padding:10px 12px;">Tavsiya (UZ)</th>
-              </tr>
-            </thead>
-            <tbody id="kw-table-minus"></tbody>
-          </table>
-        </div>
-        <div style="display:flex;gap:8px;margin-top:10px;">
-          <button onclick="copyKw('minus')" class="btn btn-sm btn-outline-light" style="font-size:.78rem;">📋 Копировать список</button>
-          <button onclick="downloadKw('minus')" class="btn btn-sm btn-outline-light" style="font-size:.78rem;">⬇ CSV</button>
-        </div>
-      </div>
-    </div>
   </div>
 
   <div class="row g-3">
@@ -656,6 +603,69 @@
         style="background:#0d1019;border:1px solid var(--border2);color:#ffffff;border-radius:8px;font-size:.875rem;"
         onkeydown="if(event.key==='Enter')sendAI()">
       <button onclick="sendAI()" class="btn btn-primary btn-sm px-3" style="white-space:nowrap;">→</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── KEYWORDS MODAL (AI-ключи и минус-слова для одного товара, в стиле ZoomSelling-AI) ── -->
+<div id="kw-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px);">
+  <div style="background:var(--card);border:1px solid var(--border2);border-radius:14px;max-width:1080px;width:100%;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;">
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;">
+      <img id="kw-img" src="" style="width:52px;height:52px;border-radius:8px;object-fit:cover;background:var(--border2);" referrerpolicy="no-referrer" onerror="this.style.opacity='.3'">
+      <div style="flex:1;min-width:0;">
+        <div style="color:#fff;font-weight:600;font-size:.95rem;">🔑 AI-ключи и минус-слова</div>
+        <div id="kw-title" style="color:#cbd5e1;font-size:.85rem;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+      </div>
+      <button onclick="closeKw()" class="btn-ghost" style="padding:6px 12px;cursor:pointer;font-size:1rem;">✕</button>
+    </div>
+
+    <div id="kw-status" style="padding:14px 20px;color:#cbd5e1;font-size:.85rem;border-bottom:1px solid var(--border);">🔍 Анализирую карточку товара (фото + название + категория + описание)...</div>
+
+    <div id="kw-content" style="display:none;padding:14px 20px;flex:1;overflow-y:auto;">
+      <ul class="nav nav-tabs" style="border-bottom:1px solid #353c5c;margin-bottom:14px;flex-wrap:nowrap;">
+        <li class="nav-item"><a class="nav-link active" id="kw-tab-target" href="#" onclick="kwTab('target',this);return false;" style="background:transparent;border:none;color:#86efac;font-size:.85rem;border-bottom:2px solid #86efac;">🎯 Целевые ключи (<span id="kw-cnt-target">0</span>)</a></li>
+        <li class="nav-item"><a class="nav-link" id="kw-tab-minus" href="#" onclick="kwTab('minus',this);return false;" style="background:transparent;border:none;color:#cbd5e1;font-size:.85rem;">🚫 Минус-слова (<span id="kw-cnt-minus">0</span>)</a></li>
+      </ul>
+
+      <div id="kw-pane-target" style="display:block;">
+        <div style="color:#cbd5e1;font-size:.78rem;margin-bottom:10px;">Запросы, по которым стоит запускать рекламу. <span style="color:#86efac;">1 — Целевые</span> точно про этот товар, <span style="color:#a5b4fc;">2 — Широкие</span> охватные.</div>
+        <div style="overflow-x:auto;border:1px solid #1e2236;border-radius:8px;">
+          <table class="table table-dark table-sm mb-0" style="font-size:.85rem;">
+            <thead style="background:#0d1019;">
+              <tr style="color:#cbd5e1;">
+                <th style="border-color:#1e2236;font-weight:500;padding:10px 12px;">Ключевой запрос</th>
+                <th style="border-color:#1e2236;font-weight:500;padding:10px 12px;width:160px;">Приоритет</th>
+                <th style="border-color:#1e2236;font-weight:500;padding:10px 12px;">Почему</th>
+              </tr>
+            </thead>
+            <tbody id="kw-table-target"></tbody>
+          </table>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button onclick="copyKw('target')" class="btn btn-sm btn-outline-light" style="font-size:.78rem;">📋 Копировать список</button>
+          <button onclick="downloadKw('target')" class="btn btn-sm btn-outline-light" style="font-size:.78rem;">⬇ CSV</button>
+        </div>
+      </div>
+
+      <div id="kw-pane-minus" style="display:none;">
+        <div style="color:#cbd5e1;font-size:.78rem;margin-bottom:10px;">Запросы для исключения из РК — нерелевантные товары, чужие бренды, смежные категории.</div>
+        <div style="overflow-x:auto;border:1px solid #1e2236;border-radius:8px;">
+          <table class="table table-dark table-sm mb-0" style="font-size:.85rem;">
+            <thead style="background:#0d1019;">
+              <tr style="color:#cbd5e1;">
+                <th style="border-color:#1e2236;font-weight:500;padding:10px 12px;">Запрос</th>
+                <th style="border-color:#1e2236;font-weight:500;padding:10px 12px;">Рекомендация ИИ (RU)</th>
+                <th style="border-color:#1e2236;font-weight:500;padding:10px 12px;">Tavsiya (UZ)</th>
+              </tr>
+            </thead>
+            <tbody id="kw-table-minus"></tbody>
+          </table>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button onclick="copyKw('minus')" class="btn btn-sm btn-outline-light" style="font-size:.78rem;">📋 Копировать список</button>
+          <button onclick="downloadKw('minus')" class="btn btn-sm btn-outline-light" style="font-size:.78rem;">⬇ CSV</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -728,13 +738,13 @@ async function loadPromoStrategy() {
 
 let kwData = { target_keywords: [], minus_words: [] };
 
-function kwTab(name, el) {
+function kwTab(name) {
   ['target','minus'].forEach(n => {
     const tab  = document.getElementById('kw-tab-' + n);
     const pane = document.getElementById('kw-pane-' + n);
     if (n === name) {
-      tab.style.color = '#a5b4fc';
-      tab.style.borderBottom = '2px solid #a5b4fc';
+      tab.style.color = (n === 'target') ? '#86efac' : '#fca5a5';
+      tab.style.borderBottom = '2px solid ' + ((n === 'target') ? '#86efac' : '#fca5a5');
       pane.style.display = 'block';
     } else {
       tab.style.color = '#cbd5e1';
@@ -805,24 +815,32 @@ function downloadKw(kind) {
   URL.revokeObjectURL(url);
 }
 
-async function loadPromoKeywords() {
-  const btn    = document.getElementById('kw-btn');
-  const status = document.getElementById('kw-status');
-  const out    = document.getElementById('kw-output');
-  btn.disabled = true;
-  btn.textContent = '🔍 Анализирую...';
+function closeKw() {
+  document.getElementById('kw-modal').style.display = 'none';
+}
+
+async function loadKeywords(pid, title, img) {
+  if (!pid) return;
+  const modal   = document.getElementById('kw-modal');
+  const status  = document.getElementById('kw-status');
+  const content = document.getElementById('kw-content');
+  document.getElementById('kw-title').textContent = title || '';
+  document.getElementById('kw-img').src = img || '';
   status.style.color = '#cbd5e1';
-  status.textContent = 'AI смотрит ассортимент магазина и активные РК, подбирает ключи и минус-слова — это ~15-20 секунд...';
-  out.style.display = 'none';
+  status.style.display = 'block';
+  status.textContent = '🔍 Анализирую карточку (фото + название + категория + описание) — это ~20-30 секунд...';
+  content.style.display = 'none';
+  modal.style.display = 'flex';
+  kwTab('target');
   try {
-    const r = await fetch('/shop/{{ client.id }}/promo/keywords', {method:'POST'});
+    const r = await fetch('/shop/{{ client.id }}/product/' + encodeURIComponent(pid) + '/keywords', {method:'POST'});
     const d = await r.json();
     if (d.error) {
       status.style.color = '#f87171';
       status.textContent = 'Ошибка: ' + d.error;
     } else {
       renderKw(d);
-      out.style.display = 'block';
+      content.style.display = 'block';
       status.textContent = (d.cached ? '✅ Из кэша. ' : '✅ Готово. ') +
         'Целевых: ' + (d.target_keywords||[]).length +
         ', минус-слов: ' + (d.minus_words||[]).length;
@@ -831,9 +849,8 @@ async function loadPromoKeywords() {
     status.style.color = '#f87171';
     status.textContent = 'Ошибка: ' + e;
   }
-  btn.disabled = false;
-  btn.textContent = '🔄 Перегенерировать';
 }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeKw(); });
 
 async function autoAnalyze() {
   const btn = document.getElementById('analyze-btn');
