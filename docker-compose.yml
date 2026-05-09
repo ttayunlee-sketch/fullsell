@@ -10,6 +10,8 @@ services:
       CONNECTOR_SECRET: ${CONNECTOR_SECRET}
       IG_VERIFY_TOKEN:  ${IG_VERIFY_TOKEN:-}
       IG_APP_SECRET:    ${IG_APP_SECRET:-}
+      IG_ACCESS_TOKEN:  ${IG_ACCESS_TOKEN:-}
+      IG_BUSINESS_ID:   ${IG_BUSINESS_ID:-}
     expose:
       - "8000"
     volumes:

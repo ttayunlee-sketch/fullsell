@@ -322,6 +322,55 @@ def keywords_for_product(product: dict, shop_name: str = "") -> dict:
         return {"error": f"Ошибка AI: {e}"}
 
 
+_DM_SYSTEM = (
+    "Ты — менеджер Instagram-аккаунта продавца на маркетплейсе UZUM (Узбекистан). "
+    "Тебе пишут в личку (DM) клиенты или потенциальные покупатели. "
+    "Отвечай тепло, кратко (1-3 предложения), на русском языке. "
+    "НЕ используй markdown (* # ** > и т.д.) — Instagram их не показывает. "
+    "Эмодзи можно, но не больше 1-2 на ответ. "
+    "Если спрашивают про товар, наличие, цену, доставку — пиши что менеджер скоро свяжется. "
+    "Если спрашивают что-то непонятное — переспроси, что именно нужно. "
+    "На ругань / спам отвечай вежливо и кратко. "
+    "Никогда не выдавай что ты ИИ — ты сотрудник магазина. "
+    "Никогда не обещай конкретных цен/наличия — только обещай связь с менеджером."
+)
+
+
+def dm_reply(message_text: str, history: list = None) -> str:
+    """Генерирует короткий ответ на входящий Instagram DM.
+
+    message_text — текст входящего сообщения от клиента
+    history      — опциональная история диалога [{"role": "user|assistant", "content": "..."}]
+    """
+    if not ANTHROPIC_API_KEY:
+        return "Здравствуйте! Менеджер скоро ответит вам."
+    if not message_text or not message_text.strip():
+        return "Здравствуйте! Чем могу помочь?"
+
+    msgs = []
+    if history:
+        for h in history[-6:]:  # макс последние 6 реплик для контекста
+            role = h.get("role")
+            text = h.get("content") or ""
+            if role in ("user", "assistant") and text:
+                msgs.append({"role": role, "content": text})
+    msgs.append({"role": "user", "content": message_text.strip()[:1500]})
+
+    try:
+        ai = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        message = ai.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=400,
+            system=_DM_SYSTEM,
+            messages=msgs,
+        )
+        return (message.content[0].text or "").strip() or "Здравствуйте! Менеджер скоро свяжется с вами."
+    except Exception as e:
+        # При ошибке AI не молчим — клиенту дадим вежливый дефолт
+        print(f"[DM REPLY ERROR] {e}", flush=True)
+        return "Здравствуйте! Менеджер скоро свяжется с вами по этому вопросу."
+
+
 def audit_product(product: dict, shop_name: str = "") -> str:
     if not ANTHROPIC_API_KEY:
         return "Ошибка: ANTHROPIC_API_KEY не задан."

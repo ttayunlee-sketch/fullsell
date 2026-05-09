@@ -20,7 +20,8 @@ from uzum import (
     debug_finance_orders, debug_ad_campaigns,
     get_ad_campaigns, get_boost_orders_products, get_ad_campaign_stats,
 )
-from ai import ask as ai_ask, audit_product, promotion_strategy, keywords_for_product
+from ai import ask as ai_ask, audit_product, promotion_strategy, keywords_for_product, dm_reply
+from instagram import send_message as ig_send_message, parse_event as ig_parse_event
 import market
 
 _AUDIT_CACHE = {}  # (shop_id, product_id) -> (timestamp, text)
@@ -893,6 +894,29 @@ def _verify_ig_signature(body: bytes, signature: str) -> bool:
     return hmac.compare_digest(expected, signature)
 
 
+def _handle_ig_dm(msg: dict) -> None:
+    """Фоновая обработка одного входящего DM: AI-ответ + Send API."""
+    sender_id = msg.get("sender_id")
+    text      = msg.get("text") or ""
+    is_test   = msg.get("is_test", False)
+    if not sender_id or not text:
+        return
+
+    if is_test:
+        # Тестовое событие из Meta-консоли — просто логируем, не отвечаем
+        _ig_log(f"[TEST EVENT] sender={sender_id} text={text!r} (skip auto-reply)")
+        return
+
+    try:
+        reply = dm_reply(text)
+        _ig_log(f"[AI REPLY] to={sender_id} text={reply!r}")
+        result = ig_send_message(sender_id, reply)
+        _ig_log(f"[SEND RESULT] {result}")
+    except Exception as e:
+        _ig_log(f"[DM HANDLER ERROR] {e}")
+        print(f"[DM HANDLER ERROR] {e}", flush=True)
+
+
 @app.post("/webhook/instagram")
 async def instagram_event(request: Request, background_tasks: BackgroundTasks):
     """Приём входящих DM и других событий от Instagram.
@@ -915,8 +939,13 @@ async def instagram_event(request: Request, background_tasks: BackgroundTasks):
     _ig_log(log_line)
     print(f"[IG WEBHOOK] {log_line[:500]}", flush=True)
 
-    # TODO: следующий этап — фоновая задача с AI-ответом через Send API
-    # background_tasks.add_task(handle_ig_event, data)
+    # Парсим входящие DM (live или test format) и отправляем AI-ответы в фоне
+    try:
+        messages = ig_parse_event(data)
+        for msg in messages:
+            background_tasks.add_task(_handle_ig_dm, msg)
+    except Exception as e:
+        print(f"[IG PARSE ERROR] {e}", flush=True)
 
     return JSONResponse({"ok": True})
 
