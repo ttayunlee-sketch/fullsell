@@ -1,8 +1,10 @@
 import os
+import hmac
 import hashlib
+import json as _json_lib
 from pathlib import Path
-from fastapi import FastAPI, Request, Form, Cookie, UploadFile, File
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
+from fastapi import FastAPI, Request, Form, Cookie, UploadFile, File, BackgroundTasks
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, PlainTextResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.cors import CORSMiddleware
@@ -844,6 +846,94 @@ async def shop_ai(cid: int, body: AskBody, session: str = Cookie(default=None)):
     products = get_products(client["api_key"], client["shop_id"])
     response = ai_ask(dict(client), products, body.message)
     return JSONResponse({"response": response})
+
+# ── INSTAGRAM WEBHOOK ─────────────────────────────────────────────────────────
+# Принимает события от Meta (входящие DM, реакции, etc.) и подтверждает подписку.
+# Документация: https://developers.facebook.com/docs/instagram-platform/webhooks
+
+IG_VERIFY_TOKEN = os.environ.get("IG_VERIFY_TOKEN", "")
+IG_APP_SECRET   = os.environ.get("IG_APP_SECRET", "")
+
+_IG_LOG_PATH = Path("/app/instagram_events.log")
+
+
+def _ig_log(msg: str) -> None:
+    """Пишет лог Instagram-событий в файл — для дебага в режиме разработки."""
+    try:
+        _IG_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with _IG_LOG_PATH.open("a", encoding="utf-8") as f:
+            f.write(msg + "\n")
+    except Exception as e:
+        print(f"[IG LOG ERROR] {e}", flush=True)
+
+
+@app.get("/webhook/instagram")
+async def instagram_verify(request: Request):
+    """Проверка подписки Meta. Meta делает GET с hub.* параметрами и ждёт challenge обратно."""
+    params = request.query_params
+    mode      = params.get("hub.mode")
+    token     = params.get("hub.verify_token")
+    challenge = params.get("hub.challenge")
+    print(f"[IG VERIFY] mode={mode} token_match={token == IG_VERIFY_TOKEN} challenge={challenge}", flush=True)
+    if mode == "subscribe" and token and IG_VERIFY_TOKEN and token == IG_VERIFY_TOKEN:
+        # Meta ждёт PLAIN TEXT с challenge, без JSON-обёртки
+        return PlainTextResponse(challenge or "")
+    return JSONResponse({"error": "verify_token mismatch or empty"}, status_code=403)
+
+
+def _verify_ig_signature(body: bytes, signature: str) -> bool:
+    """Проверяет X-Hub-Signature-256 от Meta — гарантия что запрос от них."""
+    if not IG_APP_SECRET:
+        return True  # в Dev-режиме без секрета пропускаем
+    if not signature.startswith("sha256="):
+        return False
+    expected = "sha256=" + hmac.new(
+        IG_APP_SECRET.encode("utf-8"), body, hashlib.sha256,
+    ).hexdigest()
+    return hmac.compare_digest(expected, signature)
+
+
+@app.post("/webhook/instagram")
+async def instagram_event(request: Request, background_tasks: BackgroundTasks):
+    """Приём входящих DM и других событий от Instagram.
+    Meta даёт нам 5 секунд на ответ — поэтому AI-обработку отправляем в фон."""
+    body = await request.body()
+    signature = request.headers.get("X-Hub-Signature-256", "")
+
+    if not _verify_ig_signature(body, signature):
+        print(f"[IG WEBHOOK] invalid signature: {signature[:30]}", flush=True)
+        return JSONResponse({"error": "invalid signature"}, status_code=403)
+
+    try:
+        data = _json_lib.loads(body.decode("utf-8") or "{}")
+    except Exception as e:
+        return JSONResponse({"error": f"invalid json: {e}"}, status_code=400)
+
+    # Логируем событие (для дебага — потом смотрим формат)
+    import datetime as _dt
+    log_line = f"[{_dt.datetime.utcnow().isoformat()}Z] {_json_lib.dumps(data, ensure_ascii=False)}"
+    _ig_log(log_line)
+    print(f"[IG WEBHOOK] {log_line[:500]}", flush=True)
+
+    # TODO: следующий этап — фоновая задача с AI-ответом через Send API
+    # background_tasks.add_task(handle_ig_event, data)
+
+    return JSONResponse({"ok": True})
+
+
+@app.get("/webhook/instagram/log")
+async def instagram_log_view(session: str = Cookie(default=None), tail: int = 50):
+    """Просмотр последних входящих событий — для дебага в браузере."""
+    if not _auth(session):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    if not _IG_LOG_PATH.exists():
+        return PlainTextResponse("(no events yet)\n")
+    try:
+        lines = _IG_LOG_PATH.read_text(encoding="utf-8").splitlines()
+        return PlainTextResponse("\n".join(lines[-tail:]) + "\n")
+    except Exception as e:
+        return PlainTextResponse(f"error: {e}\n", status_code=500)
+
 
 if __name__ == "__main__":
     import uvicorn

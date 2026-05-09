@@ -8,6 +8,8 @@ services:
       SECRET_KEY: ${SECRET_KEY}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       CONNECTOR_SECRET: ${CONNECTOR_SECRET}
+      IG_VERIFY_TOKEN:  ${IG_VERIFY_TOKEN:-}
+      IG_APP_SECRET:    ${IG_APP_SECRET:-}
     expose:
       - "8000"
     volumes:
